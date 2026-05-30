@@ -197,6 +197,20 @@ else
   fail "README.md and QUICKSTART.md should link to PROMPTS.md"
 fi
 
+for asset in BEFORE_AFTER.md LAUNCH.md docs/TEAM_ROLLOUT.md docs/AWESOME_LIST_SUBMISSIONS.md examples/demo/README.md; do
+  if [ -f "$asset" ]; then
+    pass "$asset exists"
+  else
+    fail "$asset missing"
+  fi
+done
+
+if grep -q "examples/demo/" README.md && grep -q "docs/TEAM_ROLLOUT.md" README.md; then
+  pass "README.md links demo gallery and team rollout"
+else
+  fail "README.md should link examples/demo/ and docs/TEAM_ROLLOUT.md"
+fi
+
 ADOPTION_TEMPLATES=(
   ".github/ISSUE_TEMPLATE/agent_editor_support.md"
   ".github/ISSUE_TEMPLATE/domain_guide_request.md"
@@ -210,6 +224,37 @@ for template in "${ADOPTION_TEMPLATES[@]}"; do
     fail "$template missing"
   fi
 done
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Count badges ==="
+
+ACTUAL_REF_GUIDES="$(find references -maxdepth 1 -name "*.md" | wc -l | tr -d ' ')"
+ACTUAL_EXAMPLE_SETS="$(find examples -mindepth 2 -name README.md | wc -l | tr -d ' ')"
+
+if grep -q "Reference%20Guides-${ACTUAL_REF_GUIDES}" README.md; then
+  pass "README.md reference guide badge matches $ACTUAL_REF_GUIDES"
+else
+  fail "README.md reference guide badge should show $ACTUAL_REF_GUIDES"
+fi
+
+if grep -q "Example%20Sets-${ACTUAL_EXAMPLE_SETS}" README.md; then
+  pass "README.md example set badge matches $ACTUAL_EXAMPLE_SETS"
+else
+  fail "README.md example set badge should show $ACTUAL_EXAMPLE_SETS"
+fi
+
+if grep -q "${ACTUAL_REF_GUIDES} reference guides" README.md && grep -q "${ACTUAL_EXAMPLE_SETS} example sets" README.md; then
+  pass "README.md release summary counts are current"
+else
+  fail "README.md release summary should mention ${ACTUAL_REF_GUIDES} reference guides and ${ACTUAL_EXAMPLE_SETS} example sets"
+fi
+
+if grep -q "${ACTUAL_REF_GUIDES} reference guides" LAUNCH.md && grep -q "${ACTUAL_EXAMPLE_SETS} example sets" LAUNCH.md; then
+  pass "LAUNCH.md counts are current"
+else
+  fail "LAUNCH.md should mention ${ACTUAL_REF_GUIDES} reference guides and ${ACTUAL_EXAMPLE_SETS} example sets"
+fi
 
 # ---------------------------------------------------------------------------
 echo ""
@@ -327,7 +372,7 @@ echo ""
 echo "=== Example maturity labels ==="
 
 while IFS= read -r readme; do
-  if grep -qE "^Status: (Stable|Beta|Draft|Experimental)" "$readme"; then
+  if grep -qE "^>? ?Status: (Stable|Beta|Draft|Experimental)" "$readme"; then
     pass "$readme has valid Status label"
   elif grep -q "^Status:" "$readme"; then
     fail "$readme has 'Status:' but value is not Stable/Beta/Draft/Experimental"
@@ -335,6 +380,62 @@ while IFS= read -r readme; do
     fail "$readme missing Status: label"
   fi
 done < <(find examples -mindepth 2 -maxdepth 2 -name README.md | sort)
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Demo gallery ==="
+
+if [ -f examples/demo/README.md ]; then
+  pass "examples/demo/README.md exists"
+else
+  fail "examples/demo/README.md missing"
+fi
+
+while IFS= read -r demo_dir; do
+  demo_name="$(basename "$demo_dir")"
+
+  if [ -f "$demo_dir/README.md" ]; then
+    pass "$demo_name README exists"
+  else
+    fail "$demo_name README missing"
+  fi
+
+  if grep -qE "^>? ?Status: (Stable|Beta|Draft|Experimental)" "$demo_dir/README.md" 2>/dev/null; then
+    pass "$demo_name README has valid Status label"
+  else
+    fail "$demo_name README missing valid Status label"
+  fi
+
+  if [ -f "$demo_dir/demo.gif" ]; then
+    pass "$demo_name demo.gif exists"
+    gif_size="$(wc -c < "$demo_dir/demo.gif" | tr -d ' ')"
+    if [ "$gif_size" -le 2000000 ]; then
+      pass "$demo_name demo.gif size is under 2 MB"
+    else
+      fail "$demo_name demo.gif is ${gif_size} bytes; keep demo GIFs under 2 MB"
+    fi
+  else
+    fail "$demo_name demo.gif missing"
+  fi
+
+  if [ -f "$demo_dir/demo.tape" ]; then
+    pass "$demo_name demo.tape exists"
+  else
+    fail "$demo_name demo.tape missing"
+  fi
+
+  if find "$demo_dir" -maxdepth 1 \( -name "bad.*" -o -name "deployment.yaml" \) | grep -q .; then
+    pass "$demo_name has risky input fixture"
+  else
+    fail "$demo_name missing risky input fixture"
+  fi
+
+  if find "$demo_dir" -maxdepth 1 \( -name "fixed.*" -o -name "deployment-fixed.yaml" \) | grep -q .; then
+    pass "$demo_name has safer output fixture"
+  else
+    fail "$demo_name missing safer output fixture"
+  fi
+done < <(find examples/demo -mindepth 1 -maxdepth 1 -type d | sort)
 
 # ---------------------------------------------------------------------------
 echo ""

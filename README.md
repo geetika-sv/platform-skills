@@ -4,9 +4,9 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-v1.28.0-0e1117)](CHANGELOG.md)
-[![Domains](https://img.shields.io/badge/Domains-37-4c8eda)](references/)
+[![Reference Guides](https://img.shields.io/badge/Reference%20Guides-48-4c8eda)](references/)
 [![Commands](https://img.shields.io/badge/Commands-31-e87c2b)](commands/)
-[![Examples](https://img.shields.io/badge/Examples-27-6f42c1)](examples/)
+[![Example Sets](https://img.shields.io/badge/Example%20Sets-55-6f42c1)](examples/)
 [![Editors](https://img.shields.io/badge/Editors-VSCode%20%7C%20Cursor%20%7C%20Copilot-2ea44f)](EDITOR_INTEGRATIONS.md)
 [![GitHub Stars](https://img.shields.io/github/stars/nitinjain999/platform-skills?style=flat&label=Stars&color=0e1117)](https://github.com/nitinjain999/platform-skills/stargazers)
 [![Tessl Registry](https://img.shields.io/badge/Tessl-nitinjain999%2Fplatform--skills-6366f1)](https://tessl.io/registry/nitinjain999/platform-skills)
@@ -16,11 +16,21 @@
 
 | Tool | What you get |
 |---|---|
-| **Claude Code** | Slash commands (`/platform-skills:review`, `/platform-skills:debug`, and 9 more), interactive guidance, automatic activation on relevant files |
+| **Claude Code** | Slash commands (`/platform-skills:review`, `/platform-skills:debug`, and 29 more), interactive guidance, automatic activation on relevant files |
 | **Codex** | Skill invocation with `$platform-skills`, loaded on demand in any Codex session |
 | **Cursor** | Project rules for Chat and Agent — platform review and generation in every file context |
 | **GitHub Copilot** | Chat instructions committed to your repo — available to your whole team without individual installs |
 | **GitHub (no AI tool)** | Browse `references/` and `examples/` directly — a standalone field handbook |
+
+## Start Here
+
+| If you want to... | Start with |
+|---|---|
+| See the value in 2 minutes | [BEFORE_AFTER.md](BEFORE_AFTER.md) |
+| Try it in your AI coding tool | [Install In 60 Seconds](#install-in-60-seconds) |
+| Copy prompts for your repo | [PROMPTS.md](PROMPTS.md) |
+| Browse demo fixtures and GIFs | [examples/demo/](examples/demo/) |
+| Roll it out across a team | [docs/TEAM_ROLLOUT.md](docs/TEAM_ROLLOUT.md) |
 
 ---
 
@@ -323,7 +333,7 @@ platform-skills/
 
 ## Roadmap
 
-**Current release: v1.28.0** — 31 commands, 37 domain reference guides, 50+ wiki pages.
+**Current release: v1.28.0** — 31 commands, 48 reference guides, 55 example sets.
 
 Full version history is in [CHANGELOG.md](CHANGELOG.md).
 

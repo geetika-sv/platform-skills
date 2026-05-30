@@ -14,8 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adoption polish: added `install.sh`, a README install matrix, and copy-ready prompts for platform, DevOps, cloud, and SRE teams evaluating the skill.
 - Copilot instructions refresh: documented the installer path, added Copilot-specific response behavior, and validated referenced handbook files.
 - Community growth assets: added `PROMPTS.md` plus issue templates for agent/editor support, domain guide requests, and example contributions.
+- Demo and launch polish: added `examples/demo/README.md`, README Start Here routing, launch checklist, and count validation for reference guides and example sets.
 - Codex and Cursor installation paths in README, Quick Start, Installation, Getting Started, How It Works, and Editor Integrations docs. The supported Codex install model is to clone the repository as `${CODEX_HOME:-$HOME/.codex}/skills/platform-skills` so `SKILL.md`, `references/`, `examples/`, and `agents/openai.yaml` stay together.
 - Release validation now checks Codex skill metadata and Cursor rule files in addition to Claude plugin structure.
+
+### Fixed
+
+- CI YAML fallback parser now supports multi-document YAML manifests via `yaml.safe_load_all`.
 
 ## [1.27.0] - 2026-05-28
 

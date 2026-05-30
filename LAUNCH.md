@@ -4,6 +4,32 @@ Ready-to-post social content for platform-skills. Each blurb links to a specific
 
 ---
 
+## Launch Checklist
+
+- [ ] Confirm `bash tests/release-consistency.sh` passes
+- [ ] Confirm `bash tests/validate-ci.sh` passes
+- [ ] Tag and publish the GitHub release
+- [ ] Pin the release announcement to the repository discussion or README issue
+- [ ] Post the LinkedIn copy with a link to [BEFORE_AFTER.md](BEFORE_AFTER.md)
+- [ ] Post the X/Twitter copy with one demo GIF from [examples/demo/](examples/demo/)
+- [ ] Submit the Show HN draft after the release is live
+- [ ] Share the Reddit draft in r/devops with a clear maintainer disclosure
+- [ ] Share the internal Slack copy with [docs/TEAM_ROLLOUT.md](docs/TEAM_ROLLOUT.md)
+- [ ] Submit to relevant awesome lists using [docs/AWESOME_LIST_SUBMISSIONS.md](docs/AWESOME_LIST_SUBMISSIONS.md)
+- [ ] Open follow-up issues for requested domains and label them `domain-request`
+- [ ] Review stars, issues, and feedback after 24 hours, 7 days, and 30 days
+
+## Weekly Content Ideas
+
+- Before/after: Kubernetes production review
+- Before/after: Terraform wildcard IAM policy
+- Before/after: Flux HelmRelease stuck or unsafe upgrade
+- Before/after: GitHub Actions supply chain hardening
+- Team rollout story: one platform baseline across Claude, Codex, Cursor, and Copilot
+- Maintainer note: how blast radius, validation, and rollback change AI-assisted reviews
+
+---
+
 ## LinkedIn (150 words — professional framing)
 
 > We built platform-skills: a free, open-source field handbook for platform engineers, DevOps, and SRE teams that works inside Claude, Codex, Cursor, and GitHub Copilot.
@@ -16,7 +42,7 @@ Ready-to-post social content for platform-skills. Each blurb links to a specific
 >
 > Every finding comes with blast radius, validation steps, and a rollback plan — the same mental model a senior platform engineer brings to every review.
 >
-> We've got 37 domain guides, 27 working examples, and prompts for platform, DevOps, SRE, security, and app teams.
+> We've got 48 reference guides, 55 example sets, demo GIFs, and prompts for platform, DevOps, SRE, security, and app teams.
 >
 > See it in action → https://github.com/nitinjain999/platform-skills/blob/main/BEFORE_AFTER.md
 >
@@ -48,7 +74,7 @@ We've been building platform-skills for a while now and just reached a point whe
 
 **What it catches:** The things that slip through code review — containers running as root, IAM policies with `Action: "*"`, Flux HelmReleases without `dependsOn` or `remediation`, GitHub Actions workflows with unpinned action SHAs and `permissions: write-all`. Every finding includes blast radius, validation commands, and rollback steps.
 
-**What's inside:** 37 domain guides, 27 working examples, slash commands for Kubernetes, Terraform, GitOps, GitHub Actions, AWS, Linkerd, OPA, KEDA, supply chain, and more.
+**What's inside:** 48 reference guides, 55 example sets, slash commands for Kubernetes, Terraform, GitOps, GitHub Actions, AWS, Linkerd, OPA, KEDA, supply chain, and more.
 
 **Before/after examples:** https://github.com/nitinjain999/platform-skills/blob/main/BEFORE_AFTER.md
 **Repo:** https://github.com/nitinjain999/platform-skills

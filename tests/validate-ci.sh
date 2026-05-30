@@ -56,7 +56,7 @@ else
       if grep -q "YOUR_\|PLACEHOLDER\|<REPLACE" "$f" 2>/dev/null; then
         continue
       fi
-      if python3 -c "import yaml; yaml.safe_load(open('$f'))" >/dev/null 2>&1; then
+      if python3 -c "import sys, yaml; list(yaml.safe_load_all(open(sys.argv[1])))" "$f" >/dev/null 2>&1; then
         pass "$f parses as valid YAML"
       else
         fail "$f is invalid YAML"
@@ -180,6 +180,20 @@ else
   fail "README.md and QUICKSTART.md should link to PROMPTS.md"
 fi
 
+for asset in BEFORE_AFTER.md LAUNCH.md docs/TEAM_ROLLOUT.md docs/AWESOME_LIST_SUBMISSIONS.md examples/demo/README.md; do
+  if [ -f "$asset" ]; then
+    pass "$asset exists"
+  else
+    fail "$asset missing"
+  fi
+done
+
+if grep -q "examples/demo/" README.md && grep -q "docs/TEAM_ROLLOUT.md" README.md; then
+  pass "README.md links demo gallery and team rollout"
+else
+  fail "README.md should link examples/demo/ and docs/TEAM_ROLLOUT.md"
+fi
+
 for template in \
   .github/ISSUE_TEMPLATE/agent_editor_support.md \
   .github/ISSUE_TEMPLATE/domain_guide_request.md \
@@ -190,6 +204,74 @@ for template in \
     fail "$template missing"
   fi
 done
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Count badges ==="
+
+ACTUAL_REF_GUIDES="$(find references -maxdepth 1 -name "*.md" | wc -l | tr -d ' ')"
+ACTUAL_EXAMPLE_SETS="$(find examples -mindepth 2 -name README.md | wc -l | tr -d ' ')"
+
+if grep -q "Reference%20Guides-${ACTUAL_REF_GUIDES}" README.md; then
+  pass "README.md reference guide badge matches $ACTUAL_REF_GUIDES"
+else
+  fail "README.md reference guide badge should show $ACTUAL_REF_GUIDES"
+fi
+
+if grep -q "Example%20Sets-${ACTUAL_EXAMPLE_SETS}" README.md; then
+  pass "README.md example set badge matches $ACTUAL_EXAMPLE_SETS"
+else
+  fail "README.md example set badge should show $ACTUAL_EXAMPLE_SETS"
+fi
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Demo gallery ==="
+
+if [ -f examples/demo/README.md ]; then
+  pass "examples/demo/README.md exists"
+else
+  fail "examples/demo/README.md missing"
+fi
+
+while IFS= read -r demo_dir; do
+  demo_name="$(basename "$demo_dir")"
+
+  if grep -qE "^>? ?Status: (Stable|Beta|Draft|Experimental)" "$demo_dir/README.md" 2>/dev/null; then
+    pass "$demo_name README has valid Status label"
+  else
+    fail "$demo_name README missing valid Status label"
+  fi
+
+  for required_asset in README.md demo.gif demo.tape; do
+    if [ -f "$demo_dir/$required_asset" ]; then
+      pass "$demo_name has $required_asset"
+    else
+      fail "$demo_name missing $required_asset"
+    fi
+  done
+
+  if [ -f "$demo_dir/demo.gif" ]; then
+    gif_size="$(wc -c < "$demo_dir/demo.gif" | tr -d ' ')"
+    if [ "$gif_size" -le 2000000 ]; then
+      pass "$demo_name demo.gif size is under 2 MB"
+    else
+      fail "$demo_name demo.gif is ${gif_size} bytes; keep demo GIFs under 2 MB"
+    fi
+  fi
+
+  if find "$demo_dir" -maxdepth 1 \( -name "bad.*" -o -name "deployment.yaml" \) | grep -q .; then
+    pass "$demo_name has risky input fixture"
+  else
+    fail "$demo_name missing risky input fixture"
+  fi
+
+  if find "$demo_dir" -maxdepth 1 \( -name "fixed.*" -o -name "deployment-fixed.yaml" \) | grep -q .; then
+    pass "$demo_name has safer output fixture"
+  else
+    fail "$demo_name missing safer output fixture"
+  fi
+done < <(find examples/demo -mindepth 1 -maxdepth 1 -type d | sort)
 
 # ---------------------------------------------------------------------------
 echo ""
