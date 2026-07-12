@@ -2,6 +2,9 @@
 name: triage
 description: Triages a PR comment — from a bot (Copilot, CI) or a human reviewer. Fetches the comment and diff via gh CLI, classifies it, applies the fix directly to the file if valid, posts a reply on the thread, and resolves it. Run from inside the repo.
 argument-hint: "<PR number> <comment ID> | --all <PR number>"
+title: "Triage Command"
+sidebar_label: "triage"
+custom_edit_url: null
 ---
 
 You are a senior platform engineer triaging PR comments.
@@ -25,11 +28,12 @@ gh api repos/{owner}/{repo}/pulls/comments/<comment_id>
 # or for a PR issue comment:
 gh api repos/{owner}/{repo}/issues/comments/<comment_id>
 
-# Get the PR diff
-gh pr diff <pr_number>
-
-# Get the file the comment refers to (if it's a review comment with a path)
-# already available from the comment API response (.path field)
+# Get only the patch for the file the comment references (from .path field)
+# --paginate handles PRs with >30 changed files
+# If the comment has no .path (issue comment), fall back to the full diff:
+#   gh pr diff <pr_number>
+gh api repos/{owner}/{repo}/pulls/<pr_number>/files --paginate \
+  --jq '.[] | select(.filename == "<comment.path>") | .patch // "binary or large diff — no patch available"'
 ```
 
 For `--all`:
@@ -54,9 +58,22 @@ gh api graphql -f query='
 
 ---
 
-## Step 2 — Classify the comment
+## Step 2 — Verify HEAD, then classify
 
-Choose exactly one:
+**For file-scoped comments** (comment has a `.path` field): before classifying, check whether the flagged identifier still exists at HEAD:
+
+```bash
+# Get the HEAD SHA
+gh pr view <pr_number> --json headRefOid --jq '.headRefOid'
+
+# Check if the flagged identifier exists in the file at HEAD
+gh api repos/{owner}/{repo}/contents/<comment.path>?ref=<head_sha> \
+  --jq '.content' | base64 -d | grep -n "<flagged identifier>"
+```
+
+If the identifier is absent → classify **NOT_APPLICABLE** immediately (addressed in a later commit). Skip Steps 3–4 and go straight to the reply.
+
+**Then choose exactly one classification:**
 
 **ACTIONABLE_FIX** — a real problem in the changed files that must be fixed:
 - Wrong value, missing required field, broken reference or link
@@ -101,7 +118,7 @@ git push
 For a review comment:
 ```bash
 gh api --method POST \
-  repos/{owner}/{repo}/pulls/comments/<comment_id>/replies \
+  repos/{owner}/{repo}/pulls/<pr_number>/comments/<comment_id>/replies \
   --field body="<reply>"
 ```
 

@@ -2,6 +2,9 @@
 name: renovate
 description: Generate renovate.json covering all dependency file types used in a repo, emit a GitHub Actions workflow that validates renovate.json on every PR, or generate a pre-commit hook for local validation.
 argument-hint: "[generate|workflow|precommit|all]"
+title: "Renovate Command"
+sidebar_label: "renovate"
+custom_edit_url: null
 ---
 
 ## Interactive Wizard (fires when $ARGUMENTS is empty)
@@ -178,7 +181,7 @@ Generate a `renovate.json` containing only the managers detected in Step 1.
 - `semver` pinning chosen → use `config:recommended` + `":separateMajorReleases"`
 
 **`schedule` — set based on Q4:**
-- `weekday-morning` → `["before 6am on weekdays"]`
+- `weekday-morning` → `["before 6am every weekday"]`
 - `monday-morning`  → `["before 6am on monday"]`
 - `weekend`         → `["before 6am on saturday and sunday"]`
 - `always`          → omit the `schedule` key entirely
@@ -241,6 +244,22 @@ Apply `pinDigests` based on Q2:
 (remove `pinDigests` line if semver strategy chosen)
 
 `terraform`:
+
+> **WARNING — Terraform modules must never be automerged.** Module source updates change infrastructure blueprints and require human review. Add this rule to always override other automerge settings:
+> ```json
+> {
+>   "packageRules": [
+>     {
+>       "matchManagers": ["terraform"],
+>       "matchDepTypes": ["module"],
+>       "automerge": false,
+>       "labels": ["terraform-module", "requires-review"]
+>     }
+>   ]
+> }
+> ```
+> Place this rule **last** in your `packageRules` array — later rules take precedence in Renovate.
+
 ```json
 {
   "description": "Terraform providers — automerge minor/patch",
@@ -351,17 +370,22 @@ Apply `pinDigests` based on Q2:
 - `gomod` detected → add `"gomodTidy"`
 - `npm` detected → add `"npmDedupe"`
 
-**`regexManagers`** — include if `.github/workflows/*.yml` contains `terraform_version:`:
+**`customManagers`** — include if `.github/workflows/*.yml` contains `terraform_version:`:
 ```json
 {
-  "description": "Update Terraform version pinned in GitHub Actions workflows",
-  "fileMatch": ["^\\.github/workflows/.*\\.ya?ml$"],
-  "matchStrings": [
-    "terraform_version:\\s*['\"]?(?<currentValue>[^'\"\\s]+)['\"]?"
-  ],
-  "depNameTemplate": "hashicorp/terraform",
-  "datasourceTemplate": "github-releases",
-  "extractVersionTemplate": "^v(?<version>.*)$"
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update Terraform version pinned in GitHub Actions workflows",
+      "managerFilePatterns": ["/^\\.github/workflows/.*\\.ya?ml$/"],
+      "matchStrings": [
+        "terraform_version:\\s*['\"]?(?<currentValue>[^'\"\\s]+)['\"]?"
+      ],
+      "depNameTemplate": "hashicorp/terraform",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    }
+  ]
 }
 ```
 
@@ -373,27 +397,18 @@ Emit the following sections only for the options chosen in Q5–Q7. Omit any sec
 
 #### Q5 — Internal Terraform module sources
 
+Both source forms below are extracted natively by the `terraform` manager — no `customManagers` entry is needed for either.
+
 **Option A — GitHub org (`github-org`, org = `<org>`):**
 
-Add to `regexManagers`:
-```json
-{
-  "description": "Terraform modules sourced from internal GitHub org <org>",
-  "fileMatch": ["\\.tf$"],
-  "matchStrings": [
-    "source\\s*=\\s*\"github\\.com/<org>/(?<depName>[^/]+)//[^\"]*\\?ref=(?<currentValue>[^\"]+)\""
-  ],
-  "datasourceTemplate": "github-tags",
-  "packageNameTemplate": "<org>/{{{depName}}}"
-}
-```
+`source = "github.com/<org>/<repo>//<path>?ref=<tag>"` is parsed under the `github-tags` datasource, with `packageName` set to `<org>/<repo>`.
 
 Add to `packageRules`:
 ```json
 {
   "description": "Terraform modules from <org> GitHub org — require manual review",
-  "matchManagers": ["regex"],
-  "matchPackagePatterns": ["^<org>/"],
+  "matchManagers": ["terraform"],
+  "matchPackageNames": ["/^<org>\\//"],
   "automerge": false,
   "groupName": "Internal Terraform modules (<org>)"
 }
@@ -401,18 +416,7 @@ Add to `packageRules`:
 
 **Option B — Private Terraform registry (`private-registry`, host = `<hostname>`):**
 
-Add to `regexManagers`:
-```json
-{
-  "description": "Terraform modules from private registry <hostname>",
-  "fileMatch": ["\\.tf$"],
-  "matchStrings": [
-    "source\\s*=\\s*\"<hostname>/(?<namespace>[^/]+)/(?<depName>[^/]+)/(?<provider>[^\"]+)\""
-  ],
-  "datasourceTemplate": "terraform-module",
-  "registryUrlTemplate": "https://<hostname>"
-}
-```
+`source = "<hostname>/<namespace>/<module>/<provider>"` with a `version = "..."` attribute is parsed under the `terraform-module` datasource for any hostname — only a `hostRules` entry for authentication is needed.
 
 Add to `hostRules`:
 ```json
@@ -529,7 +533,7 @@ After collecting all private registry `hostRules`, also add a `packageRules` ent
 {
   "description": "Container images from private registry <registry-host>",
   "matchManagers": ["dockerfile", "docker-compose", "kubernetes"],
-  "matchPackagePatterns": ["^<registry-host>/"],
+  "matchPackageNames": ["/^<registry-host>\\//"],
   "automerge": false,
   "groupName": "Private images (<registry-host>)"
 }
@@ -547,12 +551,12 @@ Collect all objects from Steps 2 and 2.5 into the final `renovate.json` followin
   "extends": [...],
   ... base config keys ...,
   "hostRules": [ ... one entry per private registry ... ],
-  "regexManagers": [ ... one entry per custom source pattern ... ],
+  "customManagers": [ ... one entry per custom source pattern ... ],
   "packageRules": [ ... all per-manager + private registry rules ... ]
 }
 ```
 
-Omit `hostRules` if no private registries were configured. Omit `regexManagers` if no custom source patterns apply.
+Omit `hostRules` if no private registries were configured. Omit `customManagers` if no custom source patterns apply.
 
 Collect all per-detected-manager objects into a single `"packageRules": [...]` array in the final `renovate.json`. Do not emit them as separate JSON blocks.
 

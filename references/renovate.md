@@ -1,3 +1,8 @@
+---
+title: Renovate
+custom_edit_url: null
+---
+
 # Renovate Reference
 
 Companion to `/platform-skills:renovate`. Deep-dive on managers, presets, security, GitOps integration, private registries, custom regex managers, pre-commit hooks, and troubleshooting.
@@ -21,7 +26,7 @@ Companion to `/platform-skills:renovate`. Deep-dive on managers, presets, securi
 | `docker-compose` | `docker-compose*.yml` | Service image tags |
 | `kubernetes` | Manifests with `kind: Deployment/StatefulSet/DaemonSet/Job/CronJob` | Container image tags in `spec.containers[].image` |
 | `cargo` | `Cargo.toml` | Rust crate dependencies |
-| `regex` | Any file via `fileMatch` | Custom version strings — no native manager support |
+| `custom.regex` | Any file via `managerFilePatterns` | Custom version strings — no native manager support |
 
 ---
 
@@ -264,20 +269,25 @@ Store secrets in Renovate's encrypted secrets (Mend Renovate App) or as env vars
 
 ## 7. Regex Managers
 
-Use `regexManagers` when no native manager supports the file format.
+Use `customManagers` (`customType: "regex"`) when no native manager supports the file format.
 
 ### Terraform version in GitHub Actions workflows
 
 ```json
 {
-  "description": "Track Terraform CLI version in workflow YAML",
-  "fileMatch": ["^\\.github/workflows/.*\\.ya?ml$"],
-  "matchStrings": [
-    "terraform_version:\\s*['\"]?(?<currentValue>[^'\"\\s]+)['\"]?"
-  ],
-  "depNameTemplate": "hashicorp/terraform",
-  "datasourceTemplate": "github-releases",
-  "extractVersionTemplate": "^v(?<version>.*)$"
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track Terraform CLI version in workflow YAML",
+      "managerFilePatterns": ["/^\\.github/workflows/.*\\.ya?ml$/"],
+      "matchStrings": [
+        "terraform_version:\\s*['\"]?(?<currentValue>[^'\"\\s]+)['\"]?"
+      ],
+      "depNameTemplate": "hashicorp/terraform",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    }
+  ]
 }
 ```
 
@@ -285,14 +295,19 @@ Use `regexManagers` when no native manager supports the file format.
 
 ```json
 {
-  "description": "Track kubectl version in install scripts",
-  "fileMatch": ["scripts/.*\\.sh$"],
-  "matchStrings": [
-    "KUBECTL_VERSION=['\"]?(?<currentValue>[^'\"\\s]+)['\"]?"
-  ],
-  "depNameTemplate": "kubernetes/kubernetes",
-  "datasourceTemplate": "github-releases",
-  "extractVersionTemplate": "^v(?<version>.*)$"
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track kubectl version in install scripts",
+      "managerFilePatterns": ["/scripts/.*\\.sh$/"],
+      "matchStrings": [
+        "KUBECTL_VERSION=['\"]?(?<currentValue>[^'\"\\s]+)['\"]?"
+      ],
+      "depNameTemplate": "kubernetes/kubernetes",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    }
+  ]
 }
 ```
 
@@ -300,14 +315,19 @@ Use `regexManagers` when no native manager supports the file format.
 
 ```json
 {
-  "description": "Track Flux CLI version in docs",
-  "fileMatch": ["^docs/.*\\.md$", "^examples/.*\\.md$"],
-  "matchStrings": [
-    "Flux CLI \\((?<currentValue>[^)]+)\\)"
-  ],
-  "depNameTemplate": "fluxcd/flux2",
-  "datasourceTemplate": "github-releases",
-  "extractVersionTemplate": "^v(?<version>.*)$"
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track Flux CLI version in docs",
+      "managerFilePatterns": ["/^docs/.*\\.md$/", "/^examples/.*\\.md$/"],
+      "matchStrings": [
+        "Flux CLI \\((?<currentValue>[^)]+)\\)"
+      ],
+      "depNameTemplate": "fluxcd/flux2",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    }
+  ]
 }
 ```
 
@@ -473,6 +493,8 @@ Use a service principal with the `AcrPull` role. Set `ACR_CLIENT_ID` and `ACR_CL
 
 ### Private Terraform registry
 
+Module sources of the form `<hostname>/<namespace>/<module>/<provider>` with a `version = "..."` attribute are handled natively by the `terraform` manager for *any* hostname (not just `registry.terraform.io`) via the `terraform-module` datasource — no custom manager needed. Add a `hostRules` entry for authentication:
+
 ```json
 {
   "hostRules": [
@@ -486,33 +508,16 @@ Use a service principal with the `AcrPull` role. Set `ACR_CLIENT_ID` and `ACR_CL
 
 Set `TF_REGISTRY_TOKEN` to a Terraform Cloud team token with read access.
 
----
-
-## 10. Custom Regex Managers
-
-Use `regexManagers` when a dependency version appears in a file format that Renovate's built-in managers do not parse — internal GitHub module sources, pinned tool versions in scripts, or version strings in YAML/JSON config files.
-
 ### Internal GitHub org Terraform modules
 
-Terraform module sources of the form `github.com/<org>/<repo>//<path>?ref=<tag>` are not picked up by the standard `terraform` manager. Add a regex manager:
+Module sources of the form `github.com/<org>/<repo>//<path>?ref=<tag>` are also handled natively by the `terraform` manager, under the `github-tags` datasource with `packageName` set to `<org>/<repo>` — no custom manager needed. Use `packageRules` to group and gate them:
 
 ```json
 {
-  "regexManagers": [
-    {
-      "description": "Terraform modules from internal GitHub org myorg",
-      "fileMatch": ["\\.tf$"],
-      "matchStrings": [
-        "source\\s*=\\s*\"github\\.com/myorg/(?<depName>[^/]+)//[^\"]*\\?ref=(?<currentValue>[^\"]+)\""
-      ],
-      "datasourceTemplate": "github-tags",
-      "packageNameTemplate": "myorg/{{{depName}}}"
-    }
-  ],
   "packageRules": [
     {
-      "matchManagers": ["regex"],
-      "matchPackagePatterns": ["^myorg/"],
+      "matchManagers": ["terraform"],
+      "matchPackageNames": ["/^myorg\\//"],
       "automerge": false,
       "groupName": "Internal Terraform modules (myorg)"
     }
@@ -522,34 +527,21 @@ Terraform module sources of the form `github.com/<org>/<repo>//<path>?ref=<tag>`
 
 Replace `myorg` with your GitHub org. Renovate will open PRs that update `?ref=v1.2.3` to the latest tag on the referenced repo.
 
-### Private Terraform registry modules
+---
 
-For modules sourced from a private registry (`<hostname>/<namespace>/<module>/<provider>`):
+## 10. Custom Regex Managers
 
-```json
-{
-  "regexManagers": [
-    {
-      "description": "Terraform modules from private registry app.terraform.io",
-      "fileMatch": ["\\.tf$"],
-      "matchStrings": [
-        "source\\s*=\\s*\"app\\.terraform\\.io/(?<namespace>[^/]+)/(?<depName>[^/]+)/(?<provider>[^\"]+)\""
-      ],
-      "datasourceTemplate": "terraform-module",
-      "registryUrlTemplate": "https://app.terraform.io"
-    }
-  ]
-}
-```
+Use `customManagers` (`customType: "regex"`) when a dependency version appears in a file format that Renovate's built-in managers do not parse — pinned tool versions in scripts, or version strings in YAML/JSON config files. `regexManagers` and `fileMatch` are deprecated aliases for `customManagers`/`managerFilePatterns` — Renovate auto-migrates them with a `WARN`, but write new configs with the current keys directly. `managerFilePatterns` treats bare strings as globs; existing regex patterns must be wrapped in `/.../ ` delimiters.
 
 ### Terraform version pinned in GitHub Actions workflows
 
 ```json
 {
-  "regexManagers": [
+  "customManagers": [
     {
+      "customType": "regex",
       "description": "Update Terraform version pinned in GitHub Actions workflows",
-      "fileMatch": ["^\\.github/workflows/.*\\.ya?ml$"],
+      "managerFilePatterns": ["/^\\.github/workflows/.*\\.ya?ml$/"],
       "matchStrings": [
         "terraform_version:\\s*['\"]?(?<currentValue>[^'\"\\s]+)['\"]?"
       ],
@@ -565,10 +557,11 @@ For modules sourced from a private registry (`<hostname>/<namespace>/<module>/<p
 
 ```json
 {
-  "regexManagers": [
+  "customManagers": [
     {
+      "customType": "regex",
       "description": "Update tools pinned in .tool-versions (asdf)",
-      "fileMatch": ["^\\.tool-versions$"],
+      "managerFilePatterns": ["/^\\.tool-versions$/"],
       "matchStrings": [
         "(?<depName>[a-z0-9_-]+)\\s+(?<currentValue>[\\d\\.]+)"
       ],
@@ -583,10 +576,11 @@ For modules sourced from a private registry (`<hostname>/<namespace>/<module>/<p
 
 ```json
 {
-  "regexManagers": [
+  "customManagers": [
     {
+      "customType": "regex",
       "description": "Update kubectl version pinned in CI scripts",
-      "fileMatch": ["^\\.github/workflows/.*\\.ya?ml$", "^scripts/.*\\.sh$"],
+      "managerFilePatterns": ["/^\\.github/workflows/.*\\.ya?ml$/", "/^scripts/.*\\.sh$/"],
       "matchStrings": [
         "kubectl_version[=:]\\s*['\"]?v?(?<currentValue>[\\d\\.]+)['\"]?"
       ],
@@ -607,7 +601,7 @@ Test your `matchStrings` pattern against actual file content:
 npm install -g renovate
 
 # Dry-run against a single file — prints what Renovate would extract
-LOG_LEVEL=debug renovate --dry-run --print-config 2>&1 | grep -A5 "regexManagers"
+LOG_LEVEL=debug renovate --dry-run --print-config 2>&1 | grep -A5 "customManagers"
 ```
 
 Common mistakes:

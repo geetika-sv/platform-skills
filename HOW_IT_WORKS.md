@@ -41,7 +41,7 @@ When you install `platform-skills`, the agent gets access to:
 Skills activate in two ways:
 
 1. **Automatic** — the agent recognises platform engineering patterns in your question (Kubernetes manifest, Terraform code, Flux error, Helm chart, GitHub Actions workflow, etc.) and routes to the relevant section of the skill
-2. **Explicit** — you name the skill or workflow, such as `Use $platform-skills ...`; in Claude, you can also use slash commands like `/platform-skills:review`
+2. **Explicit** — you name the skill or workflow, such as `Use $platform-skills ...`; in Claude, you can also use slash commands like `/platform-skills:preflight`
 
 ### What the Agent Actually Does
 
@@ -90,12 +90,14 @@ Slash commands are predefined Claude workflows. In Codex or Cursor, ask for the 
 
 | Command | When to use |
 |---------|------------|
-| `/platform-skills:review` | You have a manifest, Terraform file, or workflow and want a production-readiness check |
+| `/platform-skills:preflight` | You have a manifest, Terraform file, or workflow and want a production-readiness check |
 | `/platform-skills:terraform` | You want the full fmt/validate/tflint/security pipeline run against your Terraform |
+| `/platform-skills:checkov` | You want to bootstrap Checkov, run static or plan-level scanning, generate pre-commit hooks, or fix IaC security violations |
+| `/platform-skills:trivy` | You want to scan a container image, filesystem, repo, or SBOM for CVEs, or deploy the Trivy Operator for continuous cluster monitoring |
 | `/platform-skills:debug` | You have a platform symptom and want structured diagnosis |
 | `/platform-skills:gitops debug` | Flux or Argo CD live cluster issue — structured 5-workflow debug |
 | `/platform-skills:gitops audit` | Audit a Flux CD GitOps repo — 6-phase analysis, Critical/Warning/Info report |
-| `/platform-skills:helmcheck` | You want to create, review, or security-audit a Helm chart |
+| `/platform-skills:helmchart` | You want to create, review, or security-audit a Helm chart |
 | `/platform-skills:linkerd` | mTLS, proxy injection, or traffic policy issues |
 | `/platform-skills:linux` | DNS, load balancer, VPC connectivity, or kernel issue |
 | `/platform-skills:compliance` | SOC 2 gap analysis or Checkov remediation for Terraform |
@@ -114,6 +116,7 @@ Slash commands are predefined Claude workflows. In Codex or Cursor, ask for the 
 | `/platform-skills:triage` | Triage a PR comment, fix valid findings, reply, and resolve the thread |
 | `/platform-skills:keda` | KEDA ScaledObject/ScaledJob — generate, debug, review, or design a scaling strategy |
 | `/platform-skills:karpenter` | Karpenter NodePool/EC2NodeClass — generate, debug, review, audit scale history, plan capacity, migrate from CA, upgrade |
+| `/platform-skills:setup-agents` | Scaffold multi-agent AI setup — generate, upgrade, add, review |
 | `/platform-skills:self-improve` | Bootstrap `.learnings/` workspace, log errors/learnings, resume after interruption, review patterns, promote to project memory |
 | `/platform-skills:supply-chain` | Sign images, generate SBOMs, run CVE gates, enforce image signatures, generate SLSA provenance |
 | `/platform-skills:runtime-security` | Deploy Falco with eBPF, write custom rules, route alerts, debug rule firing, bridge to Kyverno |
@@ -122,12 +125,17 @@ Slash commands are predefined Claude workflows. In Codex or Cursor, ask for the 
 | `/platform-skills:awesome-docs` | Generate any animated Markdown doc (README, architecture guide, runbook, tutorial, RFC, post-mortem, or custom), convert existing Markdown, update/diff/audit, preview, export to Confluence/Notion |
 | `/platform-skills:aws` | CloudFront distributions, WAF web ACLs, Lambda@Edge, CloudFront Functions, Firewall Manager multi-account enforcement, and Terraform module generation with best practices |
 | `/platform-skills:composite-actions` | Generate, review, secure, and test composite GitHub Actions — scaffold, SHA pinning, secrets-as-inputs, observability, input validation, versioning |
+| `/platform-skills:github-actions` | Design reusable workflows and job graphs, harden with OIDC and SHA pinning, review for production readiness, or debug failing CI workflows |
+| `/platform-skills:kubernetes` | Cluster baseline scaffold, RBAC diagnosis and generation, workload hardening, and structured pod debug |
+| `/platform-skills:azure` | Workload Identity and OIDC federation, resource tagging with Azure Policy, AKS provisioning, RBAC scoping, and production-readiness review |
+| `/platform-skills:openshift` | SCC diagnosis and minimum grants, Route TLS modes and 503 debug, OpenShift GitOps app delivery, and cluster upgrade validation |
+| `/platform-skills:secrets` | ESO vs Sealed Secrets strategy, scaffold SecretStore/ExternalSecret, seal and rotate secrets, run rotation runbooks, and audit Kubernetes-side secrets hygiene |
 | `/platform-skills:fluxcd` | FluxCD entry point: debug a live cluster issue, audit a GitOps repo, or review a Helm chart — smart router to the right workflow |
 
 Invoke a command by typing it at the start of your message:
 
 ```text
-/platform-skills:helmcheck review
+/platform-skills:helmchart review
 
 apiVersion: v2
 name: payments-api
@@ -138,7 +146,7 @@ name: payments-api
 
 ## How the Review Workflow Works
 
-`/platform-skills:review` is the general-purpose production-readiness command. It accepts any platform artifact: Kubernetes manifest, Terraform file, GitHub Actions workflow, Helm values, or Helm chart.
+`/platform-skills:preflight` is the general-purpose production-readiness command. It accepts any platform artifact: Kubernetes manifest, Terraform file, GitHub Actions workflow, Helm values, or Helm chart.
 
 ### What It Checks
 
@@ -155,7 +163,7 @@ The review runs in this priority order — the same order an experienced platfor
 Paste the content directly:
 
 ```text
-/platform-skills:review
+/platform-skills:preflight
 
 apiVersion: apps/v1
 kind: Deployment
@@ -167,7 +175,7 @@ metadata:
 Or describe what to review:
 
 ```text
-/platform-skills:review
+/platform-skills:preflight
 
 Review my GitHub Actions workflow at .github/workflows/deploy.yml — it uses OIDC to deploy to EKS after PR merge. Check for unsafe trigger usage, least-privilege permissions, and whether the steps can be pinned more safely.
 ```
@@ -210,7 +218,7 @@ A practical loop for any platform task:
 3. Run the matching command or ask directly
    → /platform-skills:terraform for IaC review
    → /platform-skills:debug for a running system problem
-   → /platform-skills:review for any config file
+   → /platform-skills:preflight for any config file
 
 4. Apply the smallest safe change first
    → Review the blast radius before applying

@@ -120,6 +120,13 @@ REQUIRED_REFERENCES=(
   references/dora.md
   references/llm-observability.md
   references/awesome-docs.md
+  references/setup-agents.md
+  references/setup-agents-build.md
+  references/setup-agents-add.md
+  references/setup-agents-review.md
+  references/setup-agents-schemas.md
+  references/setup-agents-template.md
+  references/trivy.md
 )
 
 for ref in "${REQUIRED_REFERENCES[@]}"; do
@@ -282,7 +289,7 @@ for cmd_file in commands/*.md; do
     document)
       dir_candidates=("examples/documentation")
       ;;
-    helmcheck)
+    helmchart)
       dir_candidates=("examples/helm")
       ;;
     linux)

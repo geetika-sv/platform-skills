@@ -5,6 +5,180 @@ All notable changes to Platform Skills will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.37.0] - 2026-07-05
+
+### Fixed
+
+- **`assets/copilot-setup-steps.template.yml`** — wrapped the bare steps list in the required workflow structure (`name`, `on`, `jobs.copilot-setup-steps`) with a `concurrency` block; GitHub only invokes a job whose key is literally `copilot-setup-steps`
+- **Wrong output path** — `.github/copilot-setup-steps.yml` corrected to `.github/workflows/copilot-setup-steps.yml` in `references/setup-agents-schemas.md` and `assets/verify-agents.sh`; GitHub only reads the file from `.github/workflows/`
+- **`assets/render.sh`** — added `shopt -u patsub_replacement` guard; on bash 5.2+ an unescaped `&` in a substitution value was silently treated as a sed-style backreference, corrupting output
+- **`assets/verify-agents.sh`** — directory-reference regex widened to allow a leading dot (`.github/workflows/`, `.cursor/`) without misparsing it as a bare path; added `tpl` to the file-extension allowlist; replaced `eval` with `bash -c`; replaced non-portable BRE `\|` alternation with `grep -E`
+- **`references/setup-agents-build.md` / `references/setup-agents-template.md`** — `AGENTS.md`'s "How to invoke agents" section now prunes per-tool subsections (VS Code, Cursor, Codex) to the confirmed manifest instead of always including all of them, avoiding dead references like an unrendered `agents/openai.yaml` when Codex wasn't generated
+- **`commands/renovate.md` schedule example** — `weekday-morning` mapped to `["before 6am on weekdays"]`, which Renovate's migration rewrites to the unparseable `"before 6am on weekday"`; corrected to `["before 6am every weekday"]`
+- **Renovate docs** — replaced deprecated `regexManagers`/`fileMatch`/`matchPackagePatterns` with current `customManagers`/`managerFilePatterns`/`matchPackageNames` across `references/renovate.md` and `commands/renovate.md`; `managerFilePatterns` requires regex values wrapped in `/.../ ` delimiters
+- **Renovate Terraform module examples were unnecessary** — the native `terraform` manager already extracts `github.com/<org>/<repo>//<path>?ref=<tag>` sources (via `github-tags`) and `<hostname>/<namespace>/<module>/<provider>` sources with a `version` attribute (via `terraform-module`, for any hostname) without any custom manager; the removed examples also restricted `packageRules` to `matchManagers: ["custom.regex"]`, which can never match a `terraform`-manager dependency, so the grouping/automerge rules silently never applied. Replaced with plain `packageRules`/`hostRules` entries
+
+## [1.36.0] - 2026-06-21
+
+### Added
+
+- **`/platform-skills:github-actions`** — design reusable workflows and job graphs, harden with OIDC federation and SHA pinning, review for production readiness, and debug failing CI workflows; modes: `design`, `security`, `review`, `debug`
+- **`/platform-skills:kubernetes`** — generate cluster baseline scaffolds (namespace, RBAC, network policy, PDB, quota), diagnose 401/403 errors, harden Deployment specs, and debug crashloop/OOMKill/pending pods; modes: `baseline`, `rbac`, `workload`, `debug`
+- **`/platform-skills:azure`** — Workload Identity and OIDC federation for GitHub Actions and in-cluster pods, resource tagging with Azure Policy enforce/remediate, AKS provisioning, RBAC scoping, and production-readiness review; modes: `identity`, `tagging`, `aks`, `rbac`, `review`
+- **`/platform-skills:openshift`** — SCC rejection diagnosis and minimum SCC generation, Route TLS modes and 503/504 debug, OpenShift GitOps app delivery with sync waves, cluster upgrade validation; modes: `scc`, `route`, `gitops`, `upgrade`, `debug`
+- **`/platform-skills:secrets`** — ESO vs Sealed Secrets strategy decision, SecretStore/ExternalSecret scaffolding for AWS SM/Azure KV/Vault, seal/rotate/backup with controller interview, rotation runbooks, and Kubernetes-side secrets audit; modes: `design`, `eso`, `sealed`, `rotate`, `audit`
+- **`references/openshift.md` expanded** — added concrete SCC diagnostic commands, Route TLS YAML (edge/passthrough/reencrypt), OpenShift GitOps app-of-apps patterns, namespace quota/LimitRange baseline, and day-2 cluster upgrade runbook
+
+### Changed
+
+- `SKILL.md` "Pick the right tool" table updated with command pointers for Kubernetes, OpenShift, GitHub Actions, and Azure; new Secrets row added
+
+## [1.35.0] - 2026-06-20
+
+### Added
+
+- **`/platform-skills:preflight`** — production-readiness preflight check for a folder, repo, or single file; auto-detects 14 file types, runs type-specific checks, returns a per-file summary table with aggregated BLOCKED/NEEDS_FIX/MERGE_READY verdict; replaces `/platform-skills:review`
+- **`/platform-skills:helmchart`** — complete rewrite of `helmcheck`; 8 modes (create, lint, review, security, upgrade, schema, test, deps), 10-stage interactive create interview, official Helm best practices from helm.sh/docs/chart_best_practices/
+- **Website** — Docusaurus site with STAR-method landing page, dark mode by default, GitHub Pages deployment via OIDC
+
+### Changed
+
+- `/platform-skills:helmcheck` renamed to `/platform-skills:helmchart`
+- `/platform-skills:review` renamed to `/platform-skills:preflight`
+- Landing page redesigned with ProblemStatement + StarScenarios sections
+- Install section updated with marketplace and upgrade commands for all agents
+
+### Fixed
+
+- `helm rollback <release> 0` corrected to `helm rollback <release>` (revision 0 is invalid)
+- `busybox` test hook image pinned to `busybox:1.36`
+- `kubeconform -kubernetes-version` now reads from live cluster with fallback
+- Helm test hook scaffold split into Service-based and worker/CronJob patterns
+
+## [1.34.0] - 2026-06-20
+
+### Added
+
+- **`/platform-skills:trivy`** — new slash command for container image, filesystem, repo, SBOM, and live cluster CVE scanning with strict tool-ownership boundaries
+  - Three-layer interactive wizard: Layer 1 (developer intent → mode), Layer 2 (end goal: CLI / CI gate / continuous monitoring), Layer 3 (severity floor, `--ignore-unfixed`, `.trivyignore` template)
+  - Handoffs enforced at menu level: IaC misconfig → `/platform-skills:checkov`, admission posture → `/platform-skills:kyverno`, SBOM generation / image signing → `/platform-skills:supply-chain`
+  - Mode set: `image`, `fs`, `repo`, `secrets`, `sbom`, `k8s` — no `config` (overlaps Checkov), no SBOM generation (overlaps Syft), no manifest posture (overlaps Kyverno)
+  - Bootstrap: Homebrew (macOS), binary install (Linux), minimum version guard (≥ 0.50.0)
+  - Image mode: OS + library CVE scan, SARIF upload to GitHub Security tab, private-registry auth (`TRIVY_USERNAME`/`TRIVY_PASSWORD`, IRSA ECR, `TRIVY_GITHUB_TOKEN`)
+  - Filesystem mode: `--scanners vuln,secret,license` combined pass; repo mode for remote git URLs
+  - Secrets mode: standalone `--scanners secret` scan; custom rule sets via `trivy.yaml`
+  - SBOM mode: scan existing Syft-generated CycloneDX/SPDX files — does not generate SBOMs
+  - k8s mode: one-shot `trivy k8s --report summary cluster`; continuous monitoring via Trivy Operator deployed through Flux HelmRelease with `VulnerabilityReport` CRDs and Prometheus `serviceMonitor`
+  - Severity gating table: `HIGH,CRITICAL` recommended default; exit code 2 guard; `.trivyignore` expiry-date enforcement pattern
+  - Trivy Operator Flux HelmRelease with `serviceMonitor` for Prometheus; `kubectl` queries for `VulnerabilityReport` CRDs; PromQL examples
+  - `trivy.yaml` persistent config template
+  - Common mistakes table: 8 entries including `--exit-code 0` default, `CRITICAL`-only gate, `trivy config` on `.tf`, SBOM generation via Trivy, missing expiry dates, missing exit-code-2 check
+  - Pinned to `aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25` (v0.36.0)
+- `references/trivy.md` — deep reference with all mode logic, bootstrap, severity gating, Trivy Operator, `.trivyignore` policy, troubleshooting table
+- `examples/supply-chain/trivy-image-scan.sh` — production-ready image scan CI script with severity gate, SARIF output, optional GitHub Security tab upload, exit-code-2 guard, and guaranteed cleanup via trap
+- `examples/supply-chain/.trivyignore.example` — CVE suppression template with expiry-date headers and inline expiry checker
+- Cross-references added to `/checkov`, `/kyverno`, `/supply-chain`, and `/runtime-security` commands
+- Updated `examples/supply-chain/trivy-gate.yaml` pin from v0.30.0 to v0.36.0 (`ed142fd`)
+
+## [1.33.0] - 2026-06-14
+
+### Added
+
+- **`/platform-skills:checkov`** — new slash command for Checkov static and plan-level Terraform security scanning
+  - Bootstrap: Homebrew (macOS), pip/venv (Linux), minimum version enforcement (≥ 2.3.0), `jq` guard for plan mode
+  - Multi-cloud provider detection: reads `required_providers` to focus checks — `CKV_AWS_*`, `CKV_AZ_*`, `CKV_GCP_*`, EKS/AKS/GKE subsets
+  - Plan mode: cloud credential preflight (AWS/Azure/GCP), workspace confirmation, `*.tfvars` detection, `--deep-analysis`, auto-cleanup; `terraform init` by default, `--upgrade` only when explicitly passed
+  - Private GitHub module auth: `gh auth token` → `GITHUB_PAT` fallback chain; Terraform Cloud, Bitbucket, self-hosted VCS also supported
+  - Pre-commit generation: auto-appends `bridgecrewio/checkov` hook if `pre-commit` is installed; `checkov_diff` and `checkov_secrets` variants documented
+  - Output formats: cli, json, sarif, junitxml, all; SARIF upload to GitHub Security tab via `gh` CLI; severity/API-key warning (`--check HIGH` requires `--bc-api-key`)
+  - `--bot` PR comment mode with `<!-- checkov-results -->` marker and `BLOCKED / NEEDS_FIX / CLEAN / ERROR` result
+  - Baseline mode: `--create-baseline` for brownfield repos; HIGH/CRITICAL count shown before suppression
+  - Fix mode: AI-generated HCL patches with suggest or auto-apply; inline `#checkov:skip` syntax shown per finding; post-fix validation (fmt → validate → re-scan)
+  - Scaffold mode: `.checkov.yaml` config for SOC 2, CIS Benchmarks, PCI DSS, HIPAA compliance profiles (4 provider variants each); `custom-checks/` Python scaffold
+  - Secrets mode: `--framework secrets --enable-secret-scan-all-files` for whole-repo secrets scanning
+  - Audit mode: `--scan-secrets-history` one-time git history scan for leaked credentials
+  - Multi-framework mode: combined Terraform + GitHub Actions + Dockerfile + Helm/Kubernetes scan; `--skip-framework` for large repos
+  - Common mistakes table: 12 entries including `--check HIGH` without API key, `--use-enforcement-rules` without Prisma Cloud, `--scan-secrets-history` in pre-commit
+- `references/checkov.md` — deep reference with all mode logic, secrets scanning, multi-framework, compliance profiles
+- `examples/compliance/.pre-commit-checkov.yaml` — pre-commit hook template with `checkov`, `checkov_diff`, and `checkov_secrets` variants
+- `examples/compliance/checkov-terraform-plan.sh` — production-ready plan scan script with cloud auth preflight and guaranteed cleanup via trap
+- `examples/compliance/custom-checks/` — Python custom check scaffold with `CKV_<ORG>_<N>` naming convention
+- Cross-references added to `/terraform` and `/compliance` commands
+
+## [1.32.0] - 2026-06-09
+
+### Added
+
+- `setup-agents` command hardened with production-ready asset templates and CI coverage:
+  - `assets/verify-agents.sh` — canonical manifest-driven verify script; copy verbatim to target repos (no inline regeneration)
+  - `assets/render.sh` — `__TOKEN__` substitution engine for all template assets
+  - `assets/AGENTS.md.template` — canonical AGENTS.md structure with metadata block
+  - `assets/copilot-setup-steps.template.yml` — Copilot App setup steps template covering Terraform, AWS, Node, Python, Java/Kotlin/Spring Boot (conditional blocks)
+  - `assets/windsurfrules.template` — Windsurf rules template
+  - `assets/frontmatter/` — per-tool frontmatter templates (copilot-vscode, copilot-cloud, cursor, codex, claude-section)
+  - `assets/mcp/` — MCP wiring templates for VS Code and Claude Code
+  - `assets/agents/navigator.template.md` — navigator agent body template
+- `references/setup-agents-build.md` — unified generate/upgrade reference (replaces generate.md); includes widened language scan (9 runtimes: Go, Rust, Python, Node, Java, Kotlin/Spring Boot, Ruby, .NET, PHP), sed-based metadata read, manifest-driven coordinator discovery for all 5 tool targets, and asset-template render steps
+- Spring Boot and Kotlin detection added to the ranked language scan (`build.gradle.kts`, `settings.gradle.kts`, `pom.xml` with `spring-boot-starter`)
+- `tests/validate-skill.sh` — added 6 setup-agents reference files to `REQUIRED_REFERENCES`
+- `tests/handbook-consistency.sh` — added 5 asset files to `REQUIRED_PATHS`
+- Both SKILL.md files updated with setup-agents reference table entries
+
+### Fixed
+
+- `setup-agents-generate.md` replaced with a redirect shim to `setup-agents-build.md` — eliminates stale duplicate content
+- Upgrade mode coordinator discovery now covers all 5 tool targets with fallbacks to `agents/openai.yaml` and `CLAUDE.md` (previously could silently produce empty COORD on Codex-only repos)
+- Upgrade mode now reads `.platform-skills/manifest` for tool targets instead of scanning all possible paths
+- `setup-agents-template.md` is now a pointer to `assets/AGENTS.md.template` with render invocation — eliminates inline verbatim reproduction drift
+- `copilot-setup-steps.yml` schema section in `setup-agents-schemas.md` now points to asset template instead of inline YAML
+- `.platform-skills/` commit guidance added to `setup-agents.md` — manifest must be committed or CI silently skips all tool-target checks
+
+## [1.31.0] - 2026-06-07
+
+### Added
+
+- Command workflow count increases to 33 commands.
+- `/platform-skills:setup-agents` — scaffold a multi-agent AI setup for any repo:
+  - Interview-driven: ranked scan (stop-early) + "last change shipped" opening question; one answer replaces a 5-question form
+  - Generates agents for GitHub Copilot (`.github/agents/`), Claude Code (`CLAUDE.md`), Cursor (`.cursor/rules/`), Codex (`agents/openai.yaml`), and Windsurf (`.windsurfrules`) — any combination
+  - Navigator agent offered for every repo — the agent used every day, not just for tasks
+  - AGENTS.md as tool-neutral source of truth, including `## How to invoke agents` (@mentions, Copilot App, Claude Code, Cursor)
+  - Model selection step: fetches live pricing from provider docs at generate time; suggests a model tier per role (opus for infra/high-blast-radius, sonnet for coordinator/app, haiku for test-writer/navigator); `model:` written only to tools that support it in frontmatter (Copilot `.agent.md`, Codex YAML)
+  - Metadata block in AGENTS.md encodes interview answers and model choices; upgrade reads it — no cold start
+  - Minimum viability check: won't generate shallow agents if insufficient signal
+  - Monorepo support: asks about team ownership boundaries when multi-service detected
+  - Active staleness guard: verifies file paths (`test -f`) and directory references (`test -d`) before writing; CI-safe `scripts/verify-agents.sh` exits non-zero on missing references
+  - Tool migration detection in upgrade mode (abandoned agent files when AI tool no longer present)
+  - Per-item approval in upgrade mode: `y / n / apply-all / skip-all`
+  - Review mode: 6-dimension rubric (ownership, knowledge specificity, boundaries, autonomy, handoff, staleness); output options — commit to repo, GitHub PR comment, or chat only
+  - `commands/setup-agents.md` is ≤60 lines; all mode steps in lazy-loaded reference files
+
+### Fixed
+
+- Copilot agent files now generated at `.github/agents/` (not `.github/copilot/`) — the correct discovery path for VS Code and Copilot App
+- Copilot `.agent.md` frontmatter: removed invalid `target: all`; valid values are `vscode`, `github-copilot`, or omitted (both); `mcp-servers` block now only emitted for `target: github-copilot` profiles — VS Code agents use `.vscode/settings.json` for MCP
+- Copilot tool aliases corrected: `read`, `execute`, `edit`, `search`, `web` (not `read_file`, `run_terminal_command`, `create_file`, `edit_file`)
+- `mcp-servers` schema corrected to YAML object keyed by server name (not an array)
+- Staleness checker in `verify-agents.sh` and review mode now checks directory references with `test -d` in addition to file references with `test -f`
+
+## [1.30.0] - 2026-06-06
+
+### Changed
+
+- **Token efficiency across 21 commands** — removed 30+ redundant per-mode `Reference:` citations (datadog 8×, awesome-docs 6×, chaos 5×, runtime-security 5×, keda 4×); consolidated to one lazy citation in `debug`/`explain` mode per file. Collapsed identical 8-line "Log learnings" closing blocks in `chaos`, `dora`, `runtime-security`, `supply-chain` to a single delegation line. Scoped `conftest parse` output in `opa debug` to policy-referenced paths only via a `grep` + `jq` pipeline. Added conditional gate on `self-improve` Proactive Agent Protocols section (loads only after `init`).
+
+- **Safety gaps filled** — added `**Rollback:**` blocks to `karpenter` (generate/debug/migrate modes), `keda` (scale mode), and `runtime-security` (harden mode). Added warning that Kyverno blocks new admissions only — existing flagged pods must be manually drained. Added hard block in `renovate` preventing Terraform module automerge with a copy-paste override rule. Added safe-vs-unsafe input injection example in `composite-actions` covering `inputs.*`, `github.event.*`, and `steps.*.outputs.*`.
+
+- **Missing validation steps added** — `linkerd` (check, viz edges tls assertion, multicluster gateways); `linux` (dns: dig, disk: df/lsblk, network: ss/ip route/ping, process: ps/limits/systemctl); `dora` (Pushgateway receipt + Prometheus scrape confirmation); `mcp` (MCP Inspector smoke-test); `opa` (pass/fail conftest for generate, zero-skipped assertion for test); `helmcheck` (helm dry-run + kubeconform gate); `terraform` (plan on test workspace, stateful replacement gate).
+
+- **Correctness and version guards** — `karpenter`: replaced static chart version pin with `helm search repo` version check command. `fluxcd`: added bootstrap vs Flux Operator version guard with CRD detection. `terraform`: added tfsec v1.0+ flag change guard with `trivy config` fallback. `observability`: added k6 ≥ 1.0.0 version guard. `karpenter`: cluster-name wizard prompt before discovery tag.
+
+- **UX improvements** — `pr-review`: added interactive mode wizard (1–7 selector). `helmcheck`: added wizard Q3 (container image) and Q4 (namespace). `triage`: file-scoped diff via `gh api .../files | jq select(.filename)`, HEAD verification before classification, consistent thread resolution across all classification types.
+
+### Contributors
+
+- [@geetika-sv](https://github.com/geetika-sv) — token efficiency audit and triage/OPA improvements (issues #91, #92)
+
 ## [1.29.0] - 2026-05-30
 
 ### Added

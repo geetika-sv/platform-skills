@@ -2,6 +2,9 @@
 name: mcp
 description: MCP server and client development — scaffold, implement tools/resources/prompts, validate schemas, debug protocol compliance, and deploy with auth and rate limiting.
 argument-hint: "[create|review|debug] [typescript|python] [description]"
+title: "MCP Command"
+sidebar_label: "mcp"
+custom_edit_url: null
 ---
 
 Build, review, or debug an MCP (Model Context Protocol) server or client.
@@ -20,6 +23,14 @@ Steps:
 7. Add authentication and rate limiting for HTTP transports
 8. Provide MCP Inspector test commands and expected responses
 9. Add deployment checklist (env vars, secrets, logging)
+
+**Validation:**
+```bash
+# Smoke-test the MCP server before connecting a host
+npx @modelcontextprotocol/inspector <your-server-command>
+# This opens an interactive inspector — verify: tools list, resources list, no startup errors
+# If the server is not discovered by the host, run /platform-skills:mcp debug
+```
 
 Reference: `references/mcp.md` → Protocol Fundamentals, TypeScript SDK, Python SDK
 

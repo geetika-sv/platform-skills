@@ -7,8 +7,8 @@
   "plugins": [
     {
       "name": "platform-skills",
-      "version": "1.29.0",
-      "description": "Production-grade platform engineering handbook for Claude, Codex, and Cursor. 32 slash-command workflows and natural-language skill prompts covering: Kubernetes, Helm, Terraform (blast radius, SOC 2, IAM), Flux CD (Flux Operator, FluxInstance, gitless OCI delivery, 5-workflow cluster debug, 6-phase repo audit), Argo CD, GitHub Actions (composite actions, SHA pinning, OIDC), AWS (CloudFront, WAF, Lambda@Edge), Kyverno, OPA/Rego, KEDA autoscaling, Karpenter node autoscaling, supply chain security (Cosign, SBOM, SLSA), Falco runtime security, chaos engineering (Litmus/Chaos Mesh), DORA metrics, Datadog, Dynatrace, Linkerd, animated docs, AWS MCP profile management (multi-account SSO, Granted, credential_process, profile discovery, VS Code and Claude Code config generation), Renovate dependency automation (generate renovate.json, GHA validation workflow). Every answer includes blast radius, validation steps, and rollback plan.",
+      "version": "1.37.0",
+      "description": "Production-grade platform engineering handbook for Claude, Codex, and Cursor. 40 slash-command workflows: Kubernetes (baseline, RBAC, workload, debug), GitHub Actions (design, security, review, debug), Azure (Workload Identity, AKS, tagging, RBAC), OpenShift (SCC, Routes, GitOps, upgrades), Secrets (ESO, Sealed Secrets, rotation, audit), Helm, Terraform, Flux CD, Argo CD, AWS, Kyverno, OPA, KEDA, Karpenter, supply chain security, Falco, chaos engineering, DORA metrics, Datadog, Dynatrace, Linkerd, AWS MCP, Renovate, Checkov, Trivy, and multi-agent scaffolding. Every answer includes blast radius, validation steps, and rollback plan.",
       "author": {
         "name": "Nitin Jain"
       },
@@ -18,7 +18,7 @@
         "kubernetes",
         "helm",
         "helm-chart",
-        "helmcheck",
+        "helmchart",
         "chart-lint",
         "docker",
         "containers",
@@ -164,12 +164,19 @@
         "multi-account",
         "credential-process",
         "aws-identity-center",
-        "renovate"
+        "renovate",
+        "terraform-security",
+        "static-analysis",
+        "plan-scanning",
+        "iac-security",
+        "pre-commit-hooks",
+        "brownfield-baseline",
+        "fix-mode"
       ],
       "source": {
         "source": "url",
         "url": "https://github.com/nitinjain999/platform-skills.git",
-        "sha": "7c6a8dcd2d97857c161ff50bf9ad2be739a712eb"
+        "sha": "bfd8ee104aca6df1f1ae92fc155eaf2e699891ca"
       },
       "homepage": "https://github.com/nitinjain999/platform-skills"
     }

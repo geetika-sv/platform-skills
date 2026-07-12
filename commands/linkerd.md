@@ -2,6 +2,9 @@
 name: linkerd
 description: Linkerd-specific diagnostics — mTLS verification, proxy injection issues, authorization policy debugging, traffic management, and multi-cluster connectivity problems.
 argument-hint: "[describe the Linkerd symptom or paste linkerd check / viz output]"
+title: "Linkerd Command"
+sidebar_label: "linkerd"
+custom_edit_url: null
 ---
 
 You are a senior platform engineer specialising in Linkerd service mesh.
@@ -59,6 +62,12 @@ State the most likely cause. Common patterns:
 ## 4. Fix
 
 Exact annotation, manifest change, or command. Show before/after for configuration changes.
+
+**Validation (install/setup):** `linkerd check` — all checks must be green before proceeding. Any red check indicates a misconfiguration that will cause silent failures downstream.
+
+**Validation (mTLS / inject):** `linkerd viz edges deployment -n <namespace>` — every edge must show `tls: true`. An edge showing `tls: false` means the pod is not injected or the proxy is misconfigured.
+
+**Validation (multi-cluster):** `linkerd multicluster gateways` — each gateway must show `ALIVE: true`. Then verify cross-cluster traffic: `linkerd viz stat -n <namespace> deploy/<name> --from-namespace <remote-namespace>`.
 
 ## 5. Validation
 

@@ -94,7 +94,7 @@ runs:
     # ── 2. Authenticate — AWS OIDC ────────────────────────────────────────────
     - name: Configure AWS credentials (OIDC)
       if: inputs.aws_role_arn != ''
-      uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3bfa571  # v4.2.1
+      uses: aws-actions/configure-aws-credentials@254c19bd240aabef8777f48595e9d2d7b972184b  # v6.2.1
       with:
         role-to-assume: ${{ inputs.aws_role_arn }}
         aws-region: ${{ inputs.aws_region }}
@@ -103,7 +103,7 @@ runs:
     # ── 3. Authenticate — Azure OIDC ──────────────────────────────────────────
     - name: Configure Azure credentials (OIDC)
       if: inputs.azure_client_id != ''
-      uses: azure/login@a65d910e8af852a8061c627c456678983e180302  # v2.2.0
+      uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43  # v3.0.0
       with:
         client-id: ${{ inputs.azure_client_id }}
         tenant-id: ${{ inputs.azure_tenant_id }}
@@ -117,7 +117,7 @@ runs:
         echo 'plugin_cache_dir = "$HOME/.terraform.d/plugin-cache"' > ~/.terraformrc
 
     - name: Cache Terraform providers
-      uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
       with:
         path: |
           ~/.terraform.d/plugin-cache
@@ -126,7 +126,7 @@ runs:
           ${{ runner.os }}-terraform-${{ inputs.terraform_version }}-
 
     - name: Install Terraform
-      uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269ef065  # v3.2.0
+      uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e  # v4.0.1
       with:
         terraform_version: ${{ inputs.terraform_version }}
         terraform_wrapper: true
@@ -199,7 +199,7 @@ runs:
     # ── 6. Post plan as PR comment ────────────────────────────────────────────
     - name: Post plan comment
       if: inputs.comment_on_pr == 'true' && github.event_name == 'pull_request'
-      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
       env:
         GITHUB_TOKEN: ${{ inputs.github_token }}
         WORKING_DIR: ${{ inputs.working_directory }}

@@ -64,6 +64,11 @@ declare -a REQUIRED_PATHS=(
   "examples/azure/README.md"
   "examples/kubernetes/README.md"
   "examples/openshift/README.md"
+  "assets/verify-agents.sh"
+  "assets/render.sh"
+  "assets/AGENTS.md.template"
+  "assets/copilot-setup-steps.template.yml"
+  "assets/windsurfrules.template"
 )
 
 echo "Checking required handbook paths..."
@@ -97,5 +102,11 @@ for pattern in "${STALE_LINK_PATTERNS[@]}"; do
     exit 1
   fi
 done
+
+echo "Running checkov script tests..."
+bash tests/checkov-script.sh
+
+echo "Running trivy script tests..."
+bash tests/trivy-script.sh
 
 echo "✅ Handbook consistency checks passed"

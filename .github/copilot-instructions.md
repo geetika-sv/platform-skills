@@ -1,5 +1,5 @@
 # Platform Engineering Instructions for GitHub Copilot
-# Version: 1.29.0
+# Version: 1.37.0
 # Source: https://github.com/nitinjain999/platform-skills
 # Scope: project-level — applies to every Copilot Chat session in this workspace
 # Install: ./install.sh --copilot --target /path/to/your-project
@@ -7,7 +7,7 @@
 
 Use when troubleshooting, implementing, reviewing, or auditing platform infrastructure as a system — where Kubernetes, GitOps, CI/CD, and security concerns intersect. Apply these patterns when generating or reviewing code across Kubernetes, Flux CD, Argo CD, Terraform, GitHub Actions (composite actions, OIDC, SHA pinning), AWS, Azure, GKE, Linkerd, KEDA, supply chain security (Cosign, SBOM, SLSA), Falco, Chaos Engineering, DORA metrics, Datadog/Dynatrace/LLM observability, SOC 2, and PR review. Every answer includes blast radius, validation steps, and rollback plan.
 
-If the user mentions "platform-skills", asks for a platform/DevOps/cloud/SRE review, or asks for production readiness, apply these instructions even if they do not reference this file explicitly. In Copilot Chat, slash commands such as `/platform-skills:review` are not required; translate them into the equivalent natural-language workflow.
+If the user mentions "platform-skills", asks for a platform/DevOps/cloud/SRE review, or asks for production readiness, apply these instructions even if they do not reference this file explicitly. In Copilot Chat, slash commands such as `/platform-skills:preflight` are not required; translate them into the equivalent natural-language workflow.
 
 ## Response Contract
 
@@ -323,6 +323,7 @@ When reviewing any PR that touches infrastructure, check all six dimensions:
 - `references/keda.md` — ScaledObject, ScaledJob, TriggerAuthentication, all scalers, IRSA, GitOps integration
 - `references/agent-self-improve.md` — `.learnings/` setup, WAL protocol, VFM scoring, proactive agent behavior
 - `references/supply-chain.md` — Cosign signing, Syft SBOM, Trivy CVE gates, SLSA Level 2, Kyverno enforcement
+- `references/trivy.md` — image/fs/repo/SBOM/cluster CVE scanning, severity gating, Trivy Operator via Flux HelmRelease
 - `references/runtime-security.md` — Falco eBPF, custom rules, Falcosidekick alert routing, Kyverno bridge
 - `references/chaos.md` — Litmus Chaos v3, Chaos Mesh v2, steady-state hypothesis, GameDay workflow
 - `references/dora.md` — Deployment Frequency, Lead Time, Change Failure Rate, MTTR — GitHub Actions + Prometheus

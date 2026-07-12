@@ -2,6 +2,9 @@
 name: terraform
 description: Runs through the full Terraform validation pipeline — fmt, validate, tflint, security scan — and reviews a module or plan for blast radius, IAM risk, and state impact.
 argument-hint: "[paste terraform code, plan output, or describe the change]"
+title: "Terraform Command"
+sidebar_label: "terraform"
+custom_edit_url: null
 ---
 
 ---
@@ -44,12 +47,27 @@ Walk through each gate in order. For each, state whether it would pass or fail b
 3. **`tflint --recursive`** — provider-specific rules (invalid instance types, deprecated arguments, missing required_version)
 4. **`tfsec . --minimum-severity HIGH`** or **`checkov -d . --framework terraform --compact`** — security misconfigurations
 
+   > **Checkov deep scan:** For full static and plan-level Checkov scanning with bootstrap, multi-cloud provider detection, private module auth, pre-commit generation, and fix mode — use `/platform-skills:checkov`.
+
+   > **tfsec version note:** Flag syntax changed in v1.0+. Check with `tfsec --version`.
+   > - `< v1.0`: use `--minimum-severity HIGH`
+   > - `>= v1.0`: use `--severity HIGH`
+   > - Drop-in alternative: `trivy config . --severity HIGH`
+
 ## 2. Blast Radius
 
 - What cloud resources does this create, modify, or destroy?
 - Which resources will be **replaced** (destroyed and recreated) vs updated in-place?
 - What downstream systems depend on these resources?
 - What is the impact if this apply fails halfway?
+
+**Pre-merge validation:** Run against a test workspace before merging:
+```bash
+terraform workspace select <test-workspace>
+terraform plan -out=tfplan
+# Review the plan output for unexpected resource replacements (lines marked with -/+)
+# Any replacement of stateful resources (RDS, ElastiCache, EKS node group) requires explicit approval
+```
 
 ## 3. IAM and Security
 

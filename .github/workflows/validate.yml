@@ -4,6 +4,14 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - '**.md'
+      - '**.yml'
+      - '**.yaml'
+      - '**.tf'
+      - '**.json'
+      - '**.sh'
+      - '.github/workflows/**'
   push:
     branches:
       - main
@@ -16,17 +24,60 @@ on:
       - '**.sh'
       - '.github/workflows/**'
 
+concurrency:
+  group: validate-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: write
 
 jobs:
+  detect-changes:
+    name: Detect Changed File Types
+    runs-on: ubuntu-latest
+    outputs:
+      markdown: ${{ steps.filter.outputs.markdown }}
+      yaml: ${{ steps.filter.outputs.yaml }}
+      terraform: ${{ steps.filter.outputs.terraform }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          fetch-depth: 2
+      - id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            BASE="$PR_BASE_SHA"
+          else
+            BASE="$PUSH_BEFORE_SHA"
+          fi
+          # Fall back to HEAD~1 when base SHA is all-zeros (force-push or first push),
+          # or when it isn't present in this shallow clone (e.g. a multi-commit merge
+          # pushes more commits than fetch-depth covers) — verify the object exists
+          # before trusting it, rather than only checking for the all-zeros sentinel.
+          if [[ -z "$BASE" || "$BASE" == "0000000000000000000000000000000000000000" ]] \
+             || ! git cat-file -e "$BASE" 2>/dev/null; then
+            BASE=$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)
+          fi
+          CHANGED=$(git diff --name-only "$BASE" HEAD)
+          has_md=$(echo "$CHANGED"   | grep -qE '\.md$'         && echo true || echo false)
+          has_yaml=$(echo "$CHANGED" | grep -qE '\.(yml|yaml)$' && echo true || echo false)
+          has_tf=$(echo "$CHANGED"   | grep -qE '\.tf$'         && echo true || echo false)
+          echo "markdown=$has_md"  >> "$GITHUB_OUTPUT"
+          echo "yaml=$has_yaml"    >> "$GITHUB_OUTPUT"
+          echo "terraform=$has_tf" >> "$GITHUB_OUTPUT"
+
   validate-structure:
     name: Validate Repository Structure
     runs-on: ubuntu-latest
+    needs: detect-changes
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
       - name: Check required files
         run: |
@@ -90,6 +141,14 @@ jobs:
             exit 1
           }
 
+          # Validate description length separately for an actionable error message
+          DESC_LEN=$(jq -r '.plugins[0].description | length' .claude-plugin/marketplace.json)
+          if [ "$DESC_LEN" -gt 1024 ]; then
+            echo "❌ marketplace.json plugins[0].description is ${DESC_LEN} chars (limit: 1024)"
+            echo "Trim the description to 1024 characters or fewer before releasing."
+            exit 1
+          fi
+
           ROOT_NAME=$(jq -r '.name' .claude-plugin/marketplace.json)
           PLUGIN_NAME=$(jq -r '.plugins[0].name' .claude-plugin/marketplace.json)
           if [ "$ROOT_NAME" != "$PLUGIN_NAME" ]; then
@@ -142,9 +201,11 @@ jobs:
   validate-markdown:
     name: Validate Markdown
     runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.markdown == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
       - name: Install markdownlint
         run: |
@@ -187,9 +248,11 @@ jobs:
   validate-yaml:
     name: Validate YAML Files
     runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.yaml == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
       - name: Install yq
         run: |
@@ -266,14 +329,16 @@ jobs:
   validate-terraform:
     name: Validate Terraform
     runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.terraform == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@5e8dbf3c6d9deaf4193ca7a8fb23f2ac83bb6c85  # v4.0.0
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e  # v4.0.1
         with:
-          terraform_version: 1.7.0
+          terraform_version: 1.15.7
 
       - name: Find and validate Terraform directories
         run: |
@@ -333,9 +398,10 @@ jobs:
   validate-security:
     name: Security Checks
     runs-on: ubuntu-latest
+    needs: detect-changes
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
       - name: Check for secrets in code
         run: |
@@ -415,9 +481,10 @@ jobs:
   validate-skill-structure:
     name: Skill Structure Checks
     runs-on: ubuntu-latest
+    needs: detect-changes
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
       - name: Run skill structure validation
         run: bash tests/validate-skill.sh
@@ -428,35 +495,36 @@ jobs:
   summary:
     name: Validation Summary
     runs-on: ubuntu-latest
-    needs: [validate-structure, validate-markdown, validate-yaml, validate-terraform, validate-security, validate-skill-structure]
+    needs: [detect-changes, validate-structure, validate-markdown, validate-yaml, validate-terraform, validate-security, validate-skill-structure]
     if: always()
     steps:
       - name: Generate summary
         run: |
+          pass_or_skip() { [[ "$1" == "success" || "$1" == "skipped" ]] && echo "✅ Passed" || echo "❌ Failed"; }
           cat << EOF >> $GITHUB_STEP_SUMMARY
           ## Validation Results
 
           | Check | Status |
           |-------|--------|
-          | Repository Structure | ${{ needs.validate-structure.result == 'success' && '✅ Passed' || '❌ Failed' }} |
-          | Markdown Validation | ${{ needs.validate-markdown.result == 'success' && '✅ Passed' || '❌ Failed' }} |
-          | YAML Validation | ${{ needs.validate-yaml.result == 'success' && '✅ Passed' || '❌ Failed' }} |
-          | Terraform Validation | ${{ needs.validate-terraform.result == 'success' && '✅ Passed' || '❌ Failed' }} |
-          | Security Checks | ${{ needs.validate-security.result == 'success' && '✅ Passed' || '❌ Failed' }} |
-          | Skill Structure | ${{ needs.validate-skill-structure.result == 'success' && '✅ Passed' || '❌ Failed' }} |
+          | Repository Structure | $(pass_or_skip "${{ needs.validate-structure.result }}") |
+          | Markdown Validation  | $(pass_or_skip "${{ needs.validate-markdown.result }}") |
+          | YAML Validation      | $(pass_or_skip "${{ needs.validate-yaml.result }}") |
+          | Terraform Validation | $(pass_or_skip "${{ needs.validate-terraform.result }}") |
+          | Security Checks      | $(pass_or_skip "${{ needs.validate-security.result }}") |
+          | Skill Structure      | $(pass_or_skip "${{ needs.validate-skill-structure.result }}") |
 
           EOF
 
       - name: Check overall status
         run: |
-          if [[ "${{ needs.validate-structure.result }}" != "success" ]] || \
-             [[ "${{ needs.validate-markdown.result }}" != "success" ]] || \
-             [[ "${{ needs.validate-yaml.result }}" != "success" ]] || \
-             [[ "${{ needs.validate-terraform.result }}" != "success" ]] || \
-             [[ "${{ needs.validate-security.result }}" != "success" ]] || \
-             [[ "${{ needs.validate-skill-structure.result }}" != "success" ]]; then
+          fail() { [[ "$1" != "success" && "$1" != "skipped" ]]; }
+          if fail "${{ needs.validate-structure.result }}" || \
+             fail "${{ needs.validate-markdown.result }}"  || \
+             fail "${{ needs.validate-yaml.result }}"      || \
+             fail "${{ needs.validate-terraform.result }}" || \
+             fail "${{ needs.validate-security.result }}"  || \
+             fail "${{ needs.validate-skill-structure.result }}"; then
             echo "❌ Some validation checks failed"
             exit 1
           fi
-
           echo "✅ All validation checks passed"

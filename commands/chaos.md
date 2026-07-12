@@ -2,6 +2,9 @@
 name: chaos
 description: Design, run, and debug Chaos Engineering experiments on Kubernetes using Litmus Chaos v3 and Chaos Mesh v2. Covers fault injection (pod-delete, network-loss, CPU stress, node-drain), steady-state hypothesis probes, GameDay runbooks, scheduled experiments, DORA feedback loop, and RBAC setup. Use when asked to "inject a pod fault", "run a GameDay", "schedule chaos experiments", or "debug why my ChaosEngine is stuck".
 argument-hint: "[install|experiment|schedule|gameday|debug|report] [description or file path]"
+title: "Chaos Engineering Command"
+sidebar_label: "chaos"
+custom_edit_url: null
 ---
 
 Design, run, and debug Chaos Engineering experiments on Kubernetes.
@@ -77,8 +80,6 @@ Steps:
    ```
    Expected: all pods Running
 
-Reference: `references/chaos.md` → Installation, Decision matrix
-
 ## Mode: experiment
 
 Generate a fault experiment from a description.
@@ -96,8 +97,6 @@ Steps:
 4. Output: experiment YAML + `kubectl apply` command + expected ChaosResult verdict
 
 See `examples/chaos/pod-delete-experiment.yaml` and `examples/chaos/network-loss-experiment.yaml` for complete examples.
-
-Reference: `references/chaos.md` → Fault taxonomy, Steady-state hypothesis, Litmus ChaosEngine structure, Chaos Mesh NetworkChaos structure
 
 ## Mode: schedule
 
@@ -158,8 +157,6 @@ Steps:
 
 3. Recommend staging only — never schedule experiments in production without a change window
 
-Reference: `references/chaos.md` → GitOps integration
-
 ## Mode: gameday
 
 Run a structured GameDay experiment.
@@ -190,9 +187,9 @@ Steps:
    - MTTR observed: time from fault injection to steady-state restoration
    - Recommendation: improve circuit breaker / HPA config / replica count / PDB
 
-Reference: `references/chaos.md` → Steady-state hypothesis, Blast radius scoping, DORA feedback loop
-
 ## Mode: debug
+
+If you need deeper context on troubleshooting, load `references/chaos.md`.
 
 Diagnose a failed or stuck experiment.
 
@@ -226,8 +223,6 @@ Checklist:
    | Experiment won't end | Missing duration | Add `duration: 60s` (Chaos Mesh) or `TOTAL_CHAOS_DURATION` (Litmus) |
    | Controller crashlooping | Version mismatch | Re-install matching chart version |
 
-Reference: `references/chaos.md` → Troubleshooting
-
 ## Mode: report
 
 Summarize experiment results after completion.
@@ -249,15 +244,6 @@ Steps:
    - Recovery time → MTTR observation
    - Feed into DORA `benchmark` mode: `/platform-skills:dora benchmark`
 
-Reference: `references/chaos.md` → DORA feedback loop
-
 ---
 
-## Closing — Log learnings
-
-After completing any chaos mode, log findings while context is fresh:
-
-- Wrong CRD field, incorrect label selector, or probe that always passed → log as `ERR` in `.learnings/ERRORS.md`
-- A fault pattern, probe approach, or blast radius scoping technique that worked → log as `LRN` in `.learnings/LEARNINGS.md`
-
-Use `/platform-skills:self-improve log` for each entry. Do not defer to end of session.
+After completing this task, log errors and learnings via `/platform-skills:self-improve log`.

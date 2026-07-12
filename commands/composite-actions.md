@@ -2,6 +2,9 @@
 name: composite-actions
 description: Generate, review, secure, and test composite GitHub Actions following best practices — full repo scaffold, interview-driven generation, PR creation on existing repos, SHA pinning, secrets-as-inputs, job summaries, and actionlint validation.
 argument-hint: "[generate|review|secure|test] [action.yml path or description]"
+title: "Composite Actions Command"
+sidebar_label: "composite-actions"
+custom_edit_url: null
 ---
 
 # Composite Actions Command
@@ -308,6 +311,23 @@ Evaluate and report findings in three tiers:
 - External `uses:` with mutable tag (`@v4`, `@main`, `@latest`) — supply chain risk
 - `run:` step missing `shell:` — error on many runners
 - `${{ inputs.* }}` interpolated directly in `run:` commands — injection risk
+
+**Input injection — safe vs unsafe:**
+
+```yaml
+# ❌ UNSAFE — input interpolated directly into shell, enables injection
+- name: Fetch data
+  run: curl https://example.com?token=${{ inputs.token }}
+
+# ✅ SAFE — input passed via env var; always quote the variable to prevent word-splitting
+- name: Fetch data
+  env:
+    TOKEN: ${{ inputs.token }}
+  run: curl "https://example.com?token=${TOKEN}"
+```
+
+This applies to ALL `run:` steps. Never interpolate `${{ inputs.* }}`, `${{ github.event.* }}`, or `${{ steps.*.outputs.* }}` directly into shell commands.
+
 - Secrets accessed via `${{ secrets.* }}` inside the action — always empty, silent failure
 
 **WARNING** (should fix)

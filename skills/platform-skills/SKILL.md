@@ -12,13 +12,14 @@ Use this skill for hands-on help with Kubernetes, GitOps, cloud infrastructure, 
 | Layer | When to use |
 |---|---|
 | `Terraform` | Cloud primitives, cluster bootstrap, IAM, networking, secrets backends |
-| `Kubernetes` | Workload, RBAC, network policy, platform baseline across distributions |
-| `OpenShift` | Kubernetes patterns adapted to OpenShift routing, SCC, and OLM |
+| `Kubernetes` | Workload, RBAC, network policy, platform baseline across distributions — `/platform-skills:kubernetes` |
+| `OpenShift` | Kubernetes patterns adapted to OpenShift SCC, Routes, GitOps, and cluster upgrades — `/platform-skills:openshift` |
 | `Flux` / `Argo CD` | In-cluster reconciliation, Helm releases, workload promotion |
-| `GitHub Actions` | Validate, package, gate, and promote. Keep workflows declarative. |
-| `AWS` / `Azure` / `GKE` | Provider-specific account, identity, and governance patterns |
+| `GitHub Actions` | Validate, package, gate, and promote — OIDC, SHA pinning, reusable workflows, debug — `/platform-skills:github-actions` |
+| `AWS` / `Azure` / `GKE` | Provider-specific account, identity, and governance patterns — Azure: `/platform-skills:azure` |
 | `Linkerd` | Automatic mTLS, golden-signal observability, traffic management |
 | `Linux & Networking` | DNS, load balancer routing, VPC/VNet, kernel tuning, connectivity |
+| `Secrets` | ESO, Sealed Secrets, rotation runbooks, Kubernetes-side audit — `/platform-skills:secrets` |
 | `Compliance` | SOC 2 controls in Terraform — IAM, encryption, audit logging, Checkov |
 | `Helm (Helmcheck)` | Chart scaffolding, lint/validate pipeline, values design, security hardening |
 | `MCP` | Build/debug MCP servers — tools, resources, transports, auth |
@@ -43,6 +44,7 @@ Use this skill for hands-on help with Kubernetes, GitOps, cloud infrastructure, 
 | `GitOps audit` | 6-phase repo audit → prioritized Critical/Warning/Info report |
 | `Platform Mindset` | DevEx, friction audits, RFC/ADR, incident communication, post-mortems |
 | `Renovate` | Dependency update automation — generate renovate.json from repo scan, emit GHA validation workflow |
+| `Setup Agents` | Scaffold multi-agent AI configs for any repo — interview-driven, specific to this codebase |
 
 If a task spans multiple areas, decide which layer owns the source of truth and keep the other layers consumers of that state.
 
@@ -81,6 +83,7 @@ Load only the files needed for the current request.
 |---|---|
 | references/platform-operating-model.md | Repo topology, ownership boundaries, promotion flow |
 | references/terraform.md | Module patterns, environments, state, testing |
+| references/checkov.md | Checkov bootstrap, scan modes, provider detection, private module auth, output formats, fix mode, custom checks |
 | references/kubernetes.md | Cluster baseline, workload, RBAC, policy |
 | references/openshift.md | OpenShift routing, SCC, OLM, tenancy |
 | references/fluxcd.md | Bootstrap, reconciliation, FluxInstance, ResourceSet, image automation |
@@ -123,18 +126,27 @@ Load only the files needed for the current request.
 | references/karpenter.md | NodePool, EC2NodeClass, NodeClaim, IAM, Spot, disruption, private cluster, CA migration |
 | references/agent-self-improve.md | `.learnings/` workspace, WAL, VFM, ADL, status/migrate |
 | references/supply-chain.md | Cosign, Syft SBOM, Trivy/Grype, SLSA Level 2, ImageValidatingPolicy |
+| references/trivy.md | Trivy bootstrap, image/fs/repo/secrets/sbom/k8s modes, severity gating, Trivy Operator via Flux HelmRelease |
 | references/runtime-security.md | Falco eBPF, custom rules, Falcosidekick, Kyverno enforcement |
 | references/chaos.md | Litmus Chaos, Chaos Mesh, steady-state hypothesis, GameDay |
 | references/dora.md | Deployment Frequency, Lead Time, CFR, MTTR, Prometheus instrumentation |
 | references/awesome-docs.md | Animated SVG Markdown — architecture flow, lifecycle, carousel, timeline |
+| references/setup-agents.md | Mode routing table, signal→roster decisions, manifest format |
+| references/setup-agents-build.md | Generate/upgrade step-by-step build guide (language scan, interview, render, verify) |
+| references/setup-agents-add.md | Add a new agent or tool target to an existing setup |
+| references/setup-agents-review.md | Audit existing agent files for staleness, misalignment, missing sections |
+| references/setup-agents-schemas.md | Per-tool frontmatter schemas, managed-file markers, MCP wiring |
+| references/setup-agents-template.md | AGENTS.md template pointer and render.sh invocation |
 
 ## Slash Commands
 
 For explicit, repeatable workflows use these commands:
 
 - `/platform-skills:debug` — structured troubleshooting for any platform symptom
-- `/platform-skills:review` — production-readiness review of any manifest, Terraform, or workflow
+- `/platform-skills:preflight` — production-readiness preflight for a folder, repo, or single file
 - `/platform-skills:terraform` — full fmt/validate/tflint/security pipeline + blast radius review
+- `/platform-skills:checkov` — Checkov bootstrap, static and plan-level Terraform scanning for AWS/Azure/GCP/EKS, private GitHub module auth via `gh` CLI, pre-commit generation, multi-format output, baseline, and AI-generated fix mode
+- `/platform-skills:trivy` — scan container images, filesystems, git repos, and existing SBOMs for CVEs, secrets, and license violations; three-layer wizard routes intent → goal → tuned scan; continuous cluster monitoring via Trivy Operator (Flux HelmRelease); hard handoffs to Checkov (IaC), Kyverno (admission), and supply-chain (SBOM generation/signing)
 - `/platform-skills:fluxcd` — FluxCD entry point: routes to debug (live cluster issue), audit (repo health check), or helm (chart review) based on your input
 - `/platform-skills:gitops debug` — Flux CD and Argo CD live cluster troubleshooting (5-workflow structured debug)
 - `/platform-skills:gitops audit` — Flux CD GitOps repository 6-phase audit (discovery, validation, API compliance, best practices, security, report)
@@ -142,7 +154,7 @@ For explicit, repeatable workflows use these commands:
 - `/platform-skills:linux` — Linux administration, DNS, load balancing, VPC/VNet, and connectivity troubleshooting
 - `/platform-skills:product` — product thinking, friction audits, DevEx, RFC/ADR, incident updates, post-mortems
 - `/platform-skills:compliance` — SOC 2 gap analysis, control implementation, evidence collection, and Checkov remediation for Terraform
-- `/platform-skills:helmcheck` — Helm chart scaffolding, structural review, and security audit with full lint/validation pipeline
+- `/platform-skills:helmchart` — Helm chart scaffolding, structural review, and security audit with full lint/validation pipeline
 - `/platform-skills:mcp` — MCP server/client scaffolding, protocol review, and integration debugging
 - `/platform-skills:aws-profile` — discover, switch, and validate AWS profiles for MCP servers across VS Code and Claude Code
 - `/platform-skills:observability` — instrument services, build dashboards, write alerts, run load tests, plan capacity
@@ -164,5 +176,11 @@ For explicit, repeatable workflows use these commands:
 - `/platform-skills:awesome-docs` — generate any animated Markdown document (README, architecture guide, runbook, tutorial, RFC, post-mortem, or custom), convert existing Markdown to animated, update diagrams, diff for staleness, audit quality, preview locally, or export to Confluence/Notion HTML
 - `/platform-skills:aws` — CloudFront distributions, WAF web ACLs, Lambda@Edge, CloudFront Functions, Firewall Manager multi-account enforcement, and Terraform module generation with best practices
 - `/platform-skills:composite-actions` — generate a full composite action repo scaffold, review an existing action.yml, harden with SHA pinning and env isolation, or generate a test workflow
+- `/platform-skills:github-actions` — design reusable workflows and job graphs, review for OIDC/SHA pinning/token scoping, or debug failing CI workflows
+- `/platform-skills:kubernetes` — generate cluster baseline scaffolds, diagnose 401/403 RBAC errors, harden Deployment specs, or debug crashloop/OOMKill/pending pods
+- `/platform-skills:azure` — Workload Identity and OIDC federation, resource tagging with Azure Policy, AKS provisioning, RBAC scoping, and production-readiness review
+- `/platform-skills:openshift` — SCC diagnosis and minimum grants, Route TLS modes and 503 debug, OpenShift GitOps app delivery, and cluster upgrade validation
+- `/platform-skills:secrets` — design ESO vs Sealed Secrets strategy, scaffold SecretStore/ExternalSecret, seal and rotate secrets, run rotation runbooks, and audit Kubernetes-side secrets hygiene
 - `/platform-skills:renovate` — generate renovate.json for any repo, or emit a GHA workflow to validate it on PR
+- `/platform-skills:setup-agents` — scaffold multi-agent AI configs for any repo: ranked scan, interview-driven, generate/upgrade/add/review
 - Working Flux CD examples: examples/fluxcd/

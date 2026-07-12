@@ -17,13 +17,15 @@ Commands work in any conversation — type the slash command or describe your pr
 
 | Command | What it's for |
 |---------|--------------|
-| [/platform-skills:review](#platform-skillsreview) | Production-readiness review of any config |
+| [/platform-skills:preflight](#platform-skillspreflight) | Production-readiness preflight for a folder, repo, or single file |
 | [/platform-skills:debug](#platform-skillsdebug) | Structured troubleshooting for any symptom |
 | [/platform-skills:terraform](#platform-skillsterraform) | Terraform validation pipeline + blast radius |
+| [/platform-skills:checkov](#platform-skillscheckov) | Checkov bootstrap, static + plan-level Terraform scanning, multi-cloud, fix mode |
+| [/platform-skills:trivy](#platform-skillstrivy) | Container image, fs, repo, SBOM, and cluster CVE scanning; three-layer wizard; Trivy Operator via Flux |
 | [/platform-skills:gitops](#platform-skillsgitops) | Flux CD / Argo CD — debug live cluster issues or audit a GitOps repo |
 | [/platform-skills:linkerd](#platform-skillslinkerd) | Linkerd mTLS, injection, policy, multi-cluster |
 | [/platform-skills:linux](#platform-skillslinux) | Linux, DNS, load balancing, VPC/VNet, networking |
-| [/platform-skills:helmcheck](#platform-skillshelmcheck) | Helm chart scaffold, review, security audit |
+| [/platform-skills:helmchart](#platform-skillshelmchart) | Helm chart scaffold, review, security audit |
 | [/platform-skills:commit](#platform-skillscommit) | Conventional commit message generation |
 | [/platform-skills:observability](#platform-skillsobservability) | Instrument, alert, dashboard, load test, capacity |
 | [/platform-skills:opa](#platform-skillsopa) | OPA/Conftest Rego policy generate, test, validate |
@@ -45,19 +47,27 @@ Commands work in any conversation — type the slash command or describe your pr
 | [/platform-skills:awesome-docs](#platform-skillsawesome-docs) | Generate any animated Markdown doc (README, architecture guide, runbook, tutorial, RFC, post-mortem, or custom), convert existing Markdown, update/diff/audit, preview, export |
 | [/platform-skills:aws](#platform-skillsaws) | CloudFront, WAF, Lambda@Edge, Firewall Manager multi-account enforcement, and Terraform module generation |
 | [/platform-skills:composite-actions](#platform-skillscomposite-actions) | Generate, review, secure, and test composite GitHub Actions |
+| [/platform-skills:github-actions](#platform-skillsgithub-actions) | Design reusable workflows, harden with OIDC and SHA pinning, review for production readiness, and debug CI failures |
+| [/platform-skills:kubernetes](#platform-skillskubernetes) | Cluster baseline scaffold, RBAC diagnosis and generation, workload hardening, and pod debug |
+| [/platform-skills:azure](#platform-skillsazure) | Workload Identity, resource tagging, AKS provisioning, RBAC scoping, and production-readiness review |
+| [/platform-skills:openshift](#platform-skillsopenshift) | SCC diagnosis, Route TLS modes, OpenShift GitOps delivery, and cluster upgrade validation |
+| [/platform-skills:secrets](#platform-skillssecrets) | ESO and Sealed Secrets strategy, scaffolding, rotation runbooks, and Kubernetes-side audit |
 | [/platform-skills:fluxcd](#platform-skillsfluxcd) | FluxCD entry point — routes to debug, audit, or helm review based on your input |
 | [/platform-skills:renovate](#platform-skillsrenovate) | Generate renovate.json (with private registry support), pre-commit hook, or GHA validation workflow |
+| [/platform-skills:setup-agents](#platform-skillssetup-agents) | Scaffold multi-agent AI setup — generate, upgrade, add, review |
 
 ---
 
-## `/platform-skills:review`
+## `/platform-skills:preflight`
 
-**What it does:** Senior-engineer production-readiness review of any platform config. Evaluates correctness → security → operational safety → deprecations. Returns findings as Critical / Improvement / Note.
+**What it does:** Production-readiness preflight check for a directory, repo, or single file. Discovers all files, classifies by type, and runs type-specific checks across the whole scope. Returns a per-file summary table and aggregated verdict (BLOCKED / NEEDS_FIX / MERGE_READY).
 
-**Works on:** Kubernetes manifests, Terraform modules, GitHub Actions workflows, Helm values, RBAC configs, network policies, Dockerfiles, any YAML.
+**Works on:** Entire folders, globs, or single files — Kubernetes manifests, Terraform modules, GitHub Actions workflows, Helm values, Flux resources, Dockerfiles, shell scripts.
 
 ```
-/platform-skills:review [paste file content or describe what to review]
+/platform-skills:preflight ./k8s/
+/platform-skills:preflight releases/my-app/ --env prod
+/platform-skills:preflight [paste single file content]
 ```
 
 **What gets checked:**
@@ -73,7 +83,7 @@ Commands work in any conversation — type the slash command or describe your pr
 
 Review a Deployment manifest — paste it inline:
 ```
-/platform-skills:review
+/platform-skills:preflight
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -92,12 +102,12 @@ spec:
 
 Review a GitHub Actions workflow file by path:
 ```
-/platform-skills:review .github/workflows/deploy.yml
+/platform-skills:preflight .github/workflows/deploy.yml
 ```
 
 Review a Terraform IAM module inline:
 ```
-/platform-skills:review
+/platform-skills:preflight
 resource "aws_iam_role_policy" "app" {
   policy = jsonencode({
     Statement = [{ Effect = "Allow", Action = "*", Resource = "*" }]
@@ -107,7 +117,7 @@ resource "aws_iam_role_policy" "app" {
 
 Review Helm values against a specific chart:
 ```
-/platform-skills:review my values.yaml for the ingress-nginx chart — are resource limits set? Is the service account locked down?
+/platform-skills:preflight my values.yaml for the ingress-nginx chart — are resource limits set? Is the service account locked down?
 ```
 
 **What comes back:** A structured report grouped by severity. Critical items block merge; Improvements are non-blocking; Notes are informational.
@@ -158,6 +168,54 @@ Mysterious 503s after a deploy:
 AWS resource creation failing:
 ```
 /platform-skills:debug Terraform apply fails: "Error creating IAM role: LimitExceeded: Cannot exceed quota for InstanceSessionsPerInstanceProfile: 1"
+```
+
+---
+
+## `/platform-skills:checkov`
+
+**What it does:** Bootstraps Checkov on the developer's laptop (Homebrew/pip/venv), then runs static or plan-level Terraform security scanning for AWS, Azure, GCP, and EKS. Detects cloud provider from `required_providers`, resolves private GitHub modules via `gh auth token`, generates `.pre-commit-config.yaml` entries if pre-commit is installed, supports multi-format output (cli/json/sarif/junitxml), creates `.checkov.baseline` for brownfield repos, and offers AI-generated fix suggestions or auto-apply patches.
+
+```
+/platform-skills:checkov
+/platform-skills:checkov static terraform/aws/
+/platform-skills:checkov plan terraform/azure/ --output sarif
+/platform-skills:checkov baseline .
+/platform-skills:checkov fix terraform/gcp/
+/platform-skills:checkov scaffold
+```
+
+**Example prompts:**
+```
+/platform-skills:checkov scan my Terraform for security issues
+/platform-skills:checkov plan — run terraform plan and scan the output
+/platform-skills:checkov I'm getting CKV_AWS_19 failures — fix them
+/platform-skills:checkov set up checkov pre-commit hook for my repo
+/platform-skills:checkov scaffold a .checkov.yaml for my Azure Terraform
+```
+
+---
+
+## `/platform-skills:trivy`
+
+**What it does:** Scans container images, local filesystems, remote git repos, and existing Syft-generated SBOMs for CVEs, secrets, and license violations. A three-layer interactive wizard routes intent → end goal → tuned scan. Continuous cluster image-CVE monitoring via Trivy Operator deployed through a Flux HelmRelease. Hard handoffs ensure no overlap with Checkov (IaC), Kyverno (admission posture), or Syft (SBOM generation).
+
+```
+/platform-skills:trivy
+/platform-skills:trivy image ghcr.io/org/image:latest
+/platform-skills:trivy fs .
+/platform-skills:trivy secrets
+/platform-skills:trivy sbom sbom.spdx.json
+/platform-skills:trivy k8s
+```
+
+**Example prompts:**
+```
+/platform-skills:trivy is this image safe to ship?
+/platform-skills:trivy scan this repo for secrets and CVEs
+/platform-skills:trivy set up a CI severity gate for my container image
+/platform-skills:trivy deploy Trivy Operator for continuous cluster monitoring
+/platform-skills:trivy scan this SBOM for known vulnerabilities
 ```
 
 ---
@@ -411,12 +469,12 @@ General-purpose structured checklist when you don't know the topic. Classifies s
 
 ---
 
-## `/platform-skills:helmcheck`
+## `/platform-skills:helmchart`
 
-**What it does:** Three modes — scaffold a production-ready chart from scratch, review an existing chart for structural issues, or run a security audit.
+**What it does:** Eight modes covering the full Helm chart lifecycle — scaffold, lint, review, security audit, upgrade, schema generation, test, and dependency management.
 
 ```
-/platform-skills:helmcheck [create <workload-type> | review | security] [chart path or description]
+/platform-skills:helmchart [create | lint | review | security | upgrade | schema | test | deps] [chart path or description]
 ```
 
 ---
@@ -443,13 +501,13 @@ Generates a complete, production-ready Helm chart based on workload type.
 **Examples:**
 
 ```
-/platform-skills:helmcheck create web service for a Node.js REST API — needs ingress, HPA, and network policy
+/platform-skills:helmchart create web service for a Node.js REST API — needs ingress, HPA, and network policy
 ```
 ```
-/platform-skills:helmcheck create worker for a Python background job that reads from SQS — no inbound traffic
+/platform-skills:helmchart create worker for a Python background job that reads from SQS — no inbound traffic
 ```
 ```
-/platform-skills:helmcheck create stateful for PostgreSQL with PVC and headless service
+/platform-skills:helmchart create stateful for PostgreSQL with PVC and headless service
 ```
 
 ---
@@ -461,10 +519,10 @@ Checks a chart against a severity table. Reports Critical/High/Medium/Low findin
 **Checks include:** missing `_helpers.tpl`, no resource limits, no probes, hardcoded image tags, wrong label immutability, missing NOTES.txt, `automountServiceAccountToken: true`, undocumented values.
 
 ```
-/platform-skills:helmcheck review ./charts/orders-service
+/platform-skills:helmchart review ./charts/orders-service
 ```
 ```
-/platform-skills:helmcheck review — the chart has no liveness probes and I suspect the values.yaml has secrets hardcoded
+/platform-skills:helmchart review — the chart has no liveness probes and I suspect the values.yaml has secrets hardcoded
 ```
 
 ---
@@ -480,10 +538,10 @@ Full security audit across pod security, RBAC, network, and secrets.
 - Secrets: plaintext in values.yaml defaults, missing PDB
 
 ```
-/platform-skills:helmcheck security ./charts/payments-service
+/platform-skills:helmchart security ./charts/payments-service
 ```
 ```
-/platform-skills:helmcheck security — our chart runs as root and mounts the host docker socket, help me fix it
+/platform-skills:helmchart security — our chart runs as root and mounts the host docker socket, help me fix it
 ```
 
 ---
@@ -1684,7 +1742,7 @@ Comprehensive pre-merge risk review across six dimensions. Each mode inspects th
 ```
 /platform-skills:pr-review full   # get the complete risk picture
 # fix blockers
-/platform-skills:review           # validate specific manifests before re-review
+/platform-skills:preflight           # validate specific manifests before re-review
 ```
 
 Reference: `references/pr-review.md`
@@ -2133,7 +2191,7 @@ Reference: `references/awesome-docs.md` and `examples/awesome-docs/`
 
 **You don't need the slash command** — describe your problem in plain English and the skill activates automatically when you're working with relevant files.
 
-**Chain commands** — `/platform-skills:debug` to diagnose, then `/platform-skills:review` to validate the fix before merging.
+**Chain commands** — `/platform-skills:debug` to diagnose, then `/platform-skills:preflight` to validate the fix before merging.
 
 **Multi-mode workflows:**
 - New service: `instrument` → `alert` → `dashboard` → `loadtest`
@@ -2225,8 +2283,8 @@ Reference: `commands/composite-actions.md`, `references/composite-actions.md`, a
 |---|---|
 | Error message, `flux get` output, pod logs, "not reconciling" | `/platform-skills:gitops debug` — 5-workflow debug |
 | Repo path, "audit", "review", "before merge", "is this correct" | `/platform-skills:gitops audit` — 6-phase audit |
-| Helm chart path, `Chart.yaml`, `values.yaml`, "helm", "chart" | `/platform-skills:helmcheck` — chart review |
-| A manifest to review (Kustomization, HelmRelease, FluxInstance YAML) | `/platform-skills:review` — production-readiness check |
+| Helm chart path, `Chart.yaml`, `values.yaml`, "helm", "chart" | `/platform-skills:helmchart` — chart review |
+| A manifest to review (Kustomization, HelmRelease, FluxInstance YAML) | `/platform-skills:preflight` — production-readiness check |
 
 **Examples:**
 
@@ -2283,3 +2341,148 @@ Reference: `commands/fluxcd.md`, `references/fluxcd.md`, `references/fluxcd-sour
 ```
 
 **Reference:** `references/renovate.md`
+
+---
+
+## `/platform-skills:github-actions`
+
+Design, review, secure, and debug GitHub Actions workflows.
+
+| Mode | What it does |
+|------|-------------|
+| `design` | Reusable workflow and job graph design; promotion orchestration patterns |
+| `security` | OIDC federation (AWS/Azure), SHA pinning with `gh api` resolution, token scoping per job, secret hygiene |
+| `review` | Production-readiness checklist — CRITICAL/WARNING/INFORMATIONAL findings with score |
+| `debug` | Classify failure layer (syntax, auth, context, action version, runner, downstream); OIDC rejection diagnosis |
+
+```
+/platform-skills:github-actions design
+/platform-skills:github-actions security
+/platform-skills:github-actions review
+/platform-skills:github-actions debug
+```
+
+**Handoffs:** Step extraction → `/platform-skills:composite-actions`; Terraform plan/apply → `/platform-skills:terraform`
+
+**Reference:** `references/github-actions.md`
+
+---
+
+## `/platform-skills:kubernetes`
+
+Cluster baseline scaffolding, RBAC diagnosis, workload hardening, and pod debug.
+
+| Mode | What it does |
+|------|-------------|
+| `baseline` | Namespace, ResourceQuota, LimitRange, default-deny NetworkPolicy, PDB scaffold |
+| `rbac` | Diagnose 401 vs 403; `auth can-i` simulation; generate minimum Role/RoleBinding |
+| `workload` | Hardened Deployment template, HPA, liveness/readiness/startup probes, securityContext |
+| `debug` | CrashLoopBackOff, OOMKill, Pending scheduling, ImagePullBackOff — structured evidence collection |
+
+```
+/platform-skills:kubernetes baseline
+/platform-skills:kubernetes rbac
+/platform-skills:kubernetes workload
+/platform-skills:kubernetes debug
+```
+
+**Handoffs:** Policy enforcement → `/platform-skills:kyverno` or `/platform-skills:opa`; Secrets → `/platform-skills:secrets`; KEDA autoscaling → `/platform-skills:keda`
+
+**Reference:** `references/kubernetes.md`
+
+---
+
+## `/platform-skills:azure`
+
+Azure identity, resource tagging, AKS platform patterns, RBAC, and production-readiness review.
+
+| Mode | What it does |
+|------|-------------|
+| `identity` | Workload Identity federation, OIDC for GitHub Actions, managed identities, Entra ID groups |
+| `tagging` | `merge(local.common_tags, {...})` pattern, Azure Policy enforce/remediate, AKS MC_ group tagging |
+| `aks` | Terraform AKS baseline with Azure CNI Overlay, workload identity, node pools, Flux bootstrap |
+| `rbac` | Role assignment scoping, custom roles, audit over-permissioned identities |
+| `review` | Production-readiness checklist — CRITICAL/WARNING/INFORMATIONAL |
+
+```
+/platform-skills:azure identity
+/platform-skills:azure tagging
+/platform-skills:azure aks
+/platform-skills:azure rbac
+/platform-skills:azure review
+```
+
+**Handoffs:** Terraform generation → `/platform-skills:terraform`; In-cluster secrets → `/platform-skills:secrets`; GitOps bootstrap → `/platform-skills:gitops`
+
+**Reference:** `references/azure.md`
+
+---
+
+## `/platform-skills:openshift`
+
+OpenShift SCC diagnosis, Route TLS patterns, GitOps delivery, and cluster upgrade validation.
+
+| Mode | What it does |
+|------|-------------|
+| `scc` | Diagnose SCC rejections; map rejection to root cause; generate minimum SCC; PSA interaction |
+| `route` | Route TLS modes (edge/passthrough/reencrypt), 503/504 diagnosis, Route vs Ingress decision |
+| `gitops` | OpenShift GitOps (Argo CD) app-of-apps, sync wave ordering, SCC + Argo interaction fix |
+| `upgrade` | Pre-upgrade checklist, operator InstallPlan approval, post-upgrade validation, rollback notes |
+| `debug` | Classify symptom → SCC / Route / GitOps / runtime; route to matching mode |
+
+```
+/platform-skills:openshift scc
+/platform-skills:openshift route
+/platform-skills:openshift gitops
+/platform-skills:openshift upgrade
+/platform-skills:openshift debug
+```
+
+**Handoffs:** Standard Kubernetes debug → `/platform-skills:kubernetes`; Argo CD deep debug → `/platform-skills:gitops`
+
+**Reference:** `references/openshift.md`
+
+---
+
+## `/platform-skills:secrets`
+
+Secrets strategy, ESO scaffolding, Sealed Secrets with controller interview, rotation runbooks, and audit.
+
+| Mode | What it does |
+|------|-------------|
+| `design` | ESO vs Sealed Secrets decision matrix based on infrastructure and GitOps setup |
+| `eso` | SecretStore/ExternalSecret scaffold for AWS SM, Azure KV, Vault; ESO installation callout; debug sync errors |
+| `sealed` | Controller interview (namespace, deploy name) before generating any commands; seal, rotate, backup, restore, troubleshoot |
+| `rotate` | End-to-end rotation runbook — update provider, force sync, verify Kubernetes Secret, reload pods |
+| `audit` | SA token hygiene, ExternalSecret health across namespaces, SecretStore status, operational rules checklist |
+
+```
+/platform-skills:secrets design
+/platform-skills:secrets eso
+/platform-skills:secrets sealed
+/platform-skills:secrets rotate
+/platform-skills:secrets audit
+```
+
+**Handoffs:** Git/FS secret scanning → `/platform-skills:trivy`; Azure Key Vault identity → `/platform-skills:azure identity`; AWS IRSA → `/platform-skills:aws`
+
+**Reference:** `references/secrets.md`
+
+---
+
+## `/platform-skills:setup-agents`
+
+Scan a repo, interview the developer, generate multi-agent AI configs specific to that codebase — GitHub Copilot, Claude Code, Cursor, Codex, or all.
+
+**Works on:** Any repo, any language, any framework.
+
+| Mode | What it does |
+|------|-------------|
+| `generate` | Ranked scan, interview (starts with "last change shipped"), roster decision, full scaffold with metadata block |
+| `upgrade` | Reads prior interview from metadata block, git-diff since last update, tool migration check |
+| `add` | Add one agent without re-interview |
+| `review` | 6-dimension quality check including staleness, output as file/PR comment/chat |
+
+Every generated file: `<!-- generated by platform-skills -->` on line 1.
+AGENTS.md always includes `## How to invoke agents` so developers know how to use @mentions.
+Hand-authored AGENTS.md (no marker) never overwritten.

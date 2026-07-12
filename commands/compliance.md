@@ -2,6 +2,9 @@
 name: compliance
 description: SOC 2 compliance for Terraform — gap analysis, control implementation, evidence collection, and remediation guidance mapped to SOC 2 Trust Services Criteria.
 argument-hint: "[topic: gap | control | evidence | remediate | checklist]"
+title: "Compliance Command"
+sidebar_label: "compliance"
+custom_edit_url: null
 ---
 
 You are acting as a senior platform engineer with deep knowledge of SOC 2 compliance for infrastructure-as-code. The user has invoked `/platform-skills:compliance` with the following input:
@@ -27,6 +30,8 @@ What do you need?
 
 Enter 1–5 or topic name:
 ```
+
+> **Scanning mechanics:** To run Checkov scans — static, plan-level, multi-cloud, with fix mode — use `/platform-skills:checkov`. This command handles SOC 2 control mapping and evidence collection.
 
 **Q2 — Context** (after topic selected, one at a time):
 - **gap**: `Paste your Terraform resource(s) or describe the configuration to assess:`

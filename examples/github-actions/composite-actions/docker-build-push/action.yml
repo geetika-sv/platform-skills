@@ -102,14 +102,14 @@ runs:
 
     # ── 4. Set up buildx ─────────────────────────────────────────────────────
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@29109295f81e9208d7d86ff9e93491b13649e775  # v3.6.0
+      uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8  # v4.2.0
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@b5730b3fe9e39543dc05c9a9e4e8aa50f0f07ae0  # v3.11.1
+      uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c  # v4.2.0
 
     # ── 5. Authenticate to registry (OIDC — no static credentials) ───────────
     - name: Log in to registry
-      uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772  # v3.4.0
+      uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0  # v4.4.0
       with:
         registry: ${{ inputs.registry }}
         username: ${{ github.actor }}
@@ -118,7 +118,7 @@ runs:
     # ── 6. Extract metadata ───────────────────────────────────────────────────
     - name: Extract image metadata
       id: meta
-      uses: docker/metadata-action@902fa8ec7d6ecbea8a986d36e8b1d9b60e5c8e58  # v5.7.0
+      uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302  # v6.2.0
       with:
         images: ${{ inputs.registry }}/${{ github.repository_owner }}/${{ inputs.image_name }}
         tags: |
@@ -129,7 +129,7 @@ runs:
     # ── 7. Build and push ─────────────────────────────────────────────────────
     - name: Build and push image
       id: push
-      uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c53  # v6.18.0
+      uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a  # v7.3.0
       with:
         context: ${{ inputs.context }}
         file: ${{ inputs.dockerfile }}

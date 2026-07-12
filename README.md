@@ -3,9 +3,9 @@
 > A production-grade field handbook for platform, DevOps, SRE, and cloud engineers covering Kubernetes, Flux CD, Terraform, GitHub Actions, AWS, OPA/Rego, KEDA, Karpenter, supply chain security, Falco, observability, and more. Use it on GitHub, as a local reference, or with Claude, Codex, Cursor, and Copilot for interactive guidance with blast radius, validation steps, and rollback plans built in.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-v1.29.0-0e1117)](CHANGELOG.md)
-[![Domains](https://img.shields.io/badge/Domains-38-4c8eda)](references/)
-[![Commands](https://img.shields.io/badge/Commands-32-e87c2b)](commands/)
+[![Version](https://img.shields.io/badge/Version-v1.37.0-0e1117)](CHANGELOG.md)
+[![Domains](https://img.shields.io/badge/Domains-40-4c8eda)](references/)
+[![Commands](https://img.shields.io/badge/Commands-40-e87c2b)](commands/)
 [![Examples](https://img.shields.io/badge/Examples-28-6f42c1)](examples/)
 [![Editors](https://img.shields.io/badge/Editors-VSCode%20%7C%20Cursor%20%7C%20Copilot-2ea44f)](EDITOR_INTEGRATIONS.md)
 [![GitHub Stars](https://img.shields.io/github/stars/nitinjain999/platform-skills?style=flat&label=Stars&color=0e1117)](https://github.com/nitinjain999/platform-skills/stargazers)
@@ -16,10 +16,11 @@
 
 | Tool | What you get |
 |---|---|
-| **Claude Code** | Slash commands (`/platform-skills:review`, `/platform-skills:debug`, and 9 more), interactive guidance, automatic activation on relevant files |
+| **Claude Code** | 40 slash commands (`/platform-skills:preflight`, `/platform-skills:kubernetes`, `/platform-skills:secrets`, and more), interactive guidance, automatic activation on relevant files |
 | **Codex** | Skill invocation with `$platform-skills`, loaded on demand in any Codex session |
 | **Cursor** | Project rules for Chat and Agent — platform review and generation in every file context |
-| **GitHub Copilot** | Chat instructions committed to your repo — available to your whole team without individual installs |
+| **GitHub Copilot plugin** | Interactive slash commands in Copilot Chat — install once per user via `copilot plugin install` |
+| **GitHub Copilot (team)** | Chat instructions committed to your repo — available to your whole team without individual installs |
 | **GitHub (no AI tool)** | Browse `references/` and `examples/` directly — a standalone field handbook |
 
 ---
@@ -52,9 +53,10 @@ cd platform-skills
 | Tool | Best for | Quick install |
 |---|---|---|
 | Claude Code | Interactive plugin workflows and slash commands | `claude plugin marketplace add https://github.com/nitinjain999/platform-skills && claude plugin install platform-skills` |
+| GitHub Copilot plugin | Copilot Chat — interactive slash commands | `copilot plugin marketplace add nitinjain999/platform-skills && copilot plugin install platform-skills@platform-skills` |
 | Codex | Local skill invocation with `$platform-skills` | `./install.sh --codex` |
 | Cursor | Project rules for Chat and Agent | `./install.sh --cursor --target ../your-project` |
-| GitHub Copilot | Team-wide chat instructions committed to the repo | `./install.sh --copilot --target ../your-project` |
+| GitHub Copilot (team) | Team-wide chat instructions committed to the repo | `./install.sh --copilot --target ../your-project` |
 | Everything | Local all-agent setup | `./install.sh --all --target ../your-project` |
 
 Need manual setup, global editor rules, or troubleshooting? See [INSTALLATION.md](INSTALLATION.md).
@@ -112,31 +114,22 @@ All layers work independently. Agent integrations are optional.
 
 | Domain | Reference guide | What it covers |
 |---|---|---|
-| <img src="https://cdn.simpleicons.org/kubernetes/326CE5" width="16" height="16" alt="Kubernetes"> Kubernetes | [references/kubernetes.md](references/kubernetes.md) | Cluster baseline, workload patterns, network policy, RBAC, pod security |
+| <img src="https://cdn.simpleicons.org/kubernetes/326CE5" width="16" height="16" alt="Kubernetes"> Kubernetes | [references/kubernetes.md](references/kubernetes.md) | Cluster baseline, workload patterns, network policy, RBAC, pod security — `/platform-skills:kubernetes` |
 | 🛡️ Kyverno | [references/kyverno.md](references/kyverno.md) | Validate/mutate/generate/verifyImages policies, Audit→Deny promotion, PolicyException, PolicyReport, kyverno-cli testing, PSP/Gatekeeper migration |
-| <img src="https://cdn.simpleicons.org/redhatopenshift/EE0000" width="16" height="16" alt="OpenShift"> OpenShift | [references/openshift.md](references/openshift.md) | Routes, SCC compatibility, operator usage, tenant isolation |
+| <img src="https://cdn.simpleicons.org/redhatopenshift/EE0000" width="16" height="16" alt="OpenShift"> OpenShift | [references/openshift.md](references/openshift.md) | SCC diagnosis, Routes TLS, OpenShift GitOps delivery, cluster upgrade validation — `/platform-skills:openshift` |
 | <img src="https://cdn.simpleicons.org/argo/EF7B4D" width="16" height="16" alt="Argo CD"> Argo CD | [references/argocd.md](references/argocd.md) | App-of-apps design, ApplicationSet, sync control, promotion flows |
-| <img src="https://cdn.simpleicons.org/flux/5468FF" width="16" height="16" alt="Flux CD"> Flux CD | [references/fluxcd.md](references/fluxcd.md) | Monorepo structure, reconciliation, multi-tenancy, image automation |
-| ↳ Flux CD Sources | [references/fluxcd-sources.md](references/fluxcd-sources.md) | GitRepository, OCIRepository, HelmRepository, Bucket, ArtifactGenerator |
-| ↳ Flux CD ResourceSets | [references/fluxcd-resourcesets.md](references/fluxcd-resourcesets.md) | ResourceSet templating, input strategies, gitless fleet patterns |
-| ↳ Flux CD Notifications | [references/fluxcd-notifications.md](references/fluxcd-notifications.md) | Provider, Alert, Receiver, Slack/Datadog/GitHub commit status |
-| ↳ Flux CD Operator | [references/fluxcd-operator.md](references/fluxcd-operator.md) | FluxInstance sizing, multi-tenancy, kustomize patches, FluxReport |
-| ↳ Flux CD Kustomization | [references/fluxcd-kustomization.md](references/fluxcd-kustomization.md) | CEL readyExpr, postBuild substitution, SOPS, SSA annotations |
-| ↳ Flux CD HelmRelease | [references/fluxcd-helmrelease.md](references/fluxcd-helmrelease.md) | chartRef vs chart.spec, drift detection, post-renderers, CRD lifecycle |
-| ↳ Flux CD Terraform | [references/fluxcd-terraform.md](references/fluxcd-terraform.md) | Flux Operator bootstrap via Terraform |
-| ↳ Flux CD MCP | [references/fluxcd-mcp.md](references/fluxcd-mcp.md) | AI-assisted FluxCD debugging via Flux MCP server |
-| ↳ Flux CD Migration | [references/fluxcd-migration.md](references/fluxcd-migration.md) | v2.7/v2.8 API removals, CLI and Operator upgrade paths |
-| ↳ Flux CD Security | [references/fluxcd-security.md](references/fluxcd-security.md) | Secrets, source auth, OCI supply chain, RBAC, image automation security |
-| ↳ Flux CD Troubleshooting | [references/fluxcd-troubleshooting.md](references/fluxcd-troubleshooting.md) | Incident cheat-sheet — symptom → cause → fix per controller |
+| <img src="https://cdn.simpleicons.org/flux/5468FF" width="16" height="16" alt="Flux CD"> Flux CD | [references/fluxcd.md](references/fluxcd.md) | Monorepo structure, reconciliation, multi-tenancy, image automation. Deep-dive guides: [Sources](references/fluxcd-sources.md), [HelmRelease](references/fluxcd-helmrelease.md), [Kustomization](references/fluxcd-kustomization.md), [Notifications](references/fluxcd-notifications.md), [Operator](references/fluxcd-operator.md), [Security](references/fluxcd-security.md), [Troubleshooting](references/fluxcd-troubleshooting.md), [Migration](references/fluxcd-migration.md), [ResourceSets](references/fluxcd-resourcesets.md), [MCP](references/fluxcd-mcp.md), [Terraform bootstrap](references/fluxcd-terraform.md) — `/platform-skills:fluxcd` |
 | <img src="https://cdn.simpleicons.org/amazonaws/FF9900" width="16" height="16" alt="AWS"> AWS | [references/aws.md](references/aws.md) | IAM least-privilege, IRSA, EKS, resource tagging, cost allocation |
 | <img src="https://cdn.simpleicons.org/amazonaws/FF9900" width="16" height="16" alt="AWS"> AWS CloudFront | [references/aws-cloudfront.md](references/aws-cloudfront.md) | Distributions, OAC, cache policies, security headers, Lambda@Edge, CloudFront Functions, multi-account |
 | <img src="https://cdn.simpleicons.org/amazonaws/FF9900" width="16" height="16" alt="AWS"> AWS WAF | [references/aws-waf.md](references/aws-waf.md) | Web ACLs, managed rule groups, rate limiting, Bot Control, Firewall Manager, Shield Advanced |
-| <img src="https://cdn.simpleicons.org/microsoftazure/0078D4" width="16" height="16" alt="Azure"> Azure | [references/azure.md](references/azure.md) | Workload identity, AKS, RBAC, resource tagging, Azure Policy |
+| <img src="https://cdn.simpleicons.org/microsoftazure/0078D4" width="16" height="16" alt="Azure"> Azure | [references/azure.md](references/azure.md) | Workload identity, AKS, RBAC, resource tagging, Azure Policy — `/platform-skills:azure` |
 | <img src="https://cdn.simpleicons.org/terraform/844FBA" width="16" height="16" alt="Terraform"> Terraform | [references/terraform.md](references/terraform.md) | Module design, state management, testing, CI/CD integration |
-| <img src="https://cdn.simpleicons.org/githubactions/2088FF" width="16" height="16" alt="GitHub Actions"> GitHub Actions | [references/github-actions.md](references/github-actions.md) | Security hardening, OIDC, SHA pinning, reusable workflows |
+| <img src="https://cdn.simpleicons.org/checkov/ffffff" width="16" height="16" alt="Checkov"> Checkov | [references/checkov.md](references/checkov.md) | Bootstrap, static + plan scanning, multi-cloud provider detection, fix mode, custom checks |
+| 🔍 Trivy | [references/trivy.md](references/trivy.md) | Image, fs, repo, SBOM, and cluster CVE scanning; severity gates; Trivy Operator via Flux |
+| <img src="https://cdn.simpleicons.org/githubactions/2088FF" width="16" height="16" alt="GitHub Actions"> GitHub Actions | [references/github-actions.md](references/github-actions.md) | Security hardening, OIDC, SHA pinning, reusable workflows — `/platform-skills:github-actions` |
 | <img src="https://cdn.simpleicons.org/githubactions/2088FF" width="16" height="16" alt="GitHub Actions"> Composite GitHub Actions | [references/composite-actions.md](references/composite-actions.md) | Composite action scaffolding, review, hardening, testing, release, private repo access |
 | 🗺️ Platform model | [references/platform-operating-model.md](references/platform-operating-model.md) | Ownership boundaries, promotion flows, cross-tool design |
-| 🔐 Secrets | [references/secrets.md](references/secrets.md) | External Secrets Operator, Sealed Secrets, provider setup, troubleshooting |
+| 🔐 Secrets | [references/secrets.md](references/secrets.md) | External Secrets Operator, Sealed Secrets, provider setup, troubleshooting — `/platform-skills:secrets` |
 | <img src="https://cdn.simpleicons.org/linkerd/2BEDA7" width="16" height="16" alt="Linkerd"> Linkerd | [references/linkerd.md](references/linkerd.md) | mTLS, proxy injection, AuthorizationPolicy, observability, multi-cluster |
 | <img src="https://cdn.simpleicons.org/linux/FCC624" width="16" height="16" alt="Linux"> Linux & Networking | [references/linux-networking.md](references/linux-networking.md) | Linux admin, DNS, load balancing, VPC/VNet design, connectivity troubleshooting |
 | 🧠 Platform Mindset | [references/platform-mindset.md](references/platform-mindset.md) | DevEx, friction audits, RFC/ADR, incident comms, post-mortems, capacity planning |
@@ -162,6 +155,7 @@ All layers work independently. Agent integrations are optional.
 | 📊 DORA Metrics | [references/dora.md](references/dora.md) | Deployment Frequency, Lead Time, Change Failure Rate, MTTR — GitHub Actions + Prometheus Pushgateway instrumentation, recording rules, Grafana dashboards, SaaS decision matrix, anti-pattern detection — `/platform-skills:dora` |
 | ✨ Awesome Docs | [references/awesome-docs.md](references/awesome-docs.md) | Animated GitHub-safe Markdown document generation — any doc type (README, architecture guide, runbook, tutorial, API reference, RFC, post-mortem, or custom), 4 SVG patterns, convert existing docs, diff for staleness, audit quality, local preview, multi-platform export — `/platform-skills:awesome-docs` |
 | 🔄 Renovate | [references/renovate.md](references/renovate.md) | Dependency update automation — scan repo and generate renovate.json per ecosystem, private registry auth (ECR/GCR/ACR/Harbor/Helm OCI), custom regex managers for internal GitHub modules and private Terraform registries, pre-commit hook, GitHub Actions validation workflow — `/platform-skills:renovate` |
+| 🤖 Setup Agents | [references/setup-agents.md](references/setup-agents.md) | Multi-agent AI scaffold for any repo — ranked scan, interview-driven generate/upgrade/add/review modes, GitHub Copilot, Claude Code, Cursor, Codex, and Windsurf configs — `/platform-skills:setup-agents` |
 
 ## Core principles
 
@@ -249,6 +243,27 @@ Then ask Codex naturally:
 Use $platform-skills to review this Terraform change for ownership, blast radius, validation, and rollback.
 ```
 
+### Install as a GitHub Copilot plugin
+
+Install from the Copilot plugin marketplace to get platform-skills guidance in GitHub Copilot Chat:
+
+```bash
+copilot plugin marketplace add nitinjain999/platform-skills
+copilot plugin install platform-skills@platform-skills
+```
+
+**Verify:**
+```bash
+copilot plugin list
+# platform-skills  enabled
+```
+
+**Upgrade:**
+```bash
+copilot plugin uninstall platform-skills
+copilot plugin install platform-skills@platform-skills
+```
+
 ### Install Cursor rules
 
 Copy the Cursor-native rules into your project so every developer gets the same platform guidance in Cursor Chat and Agent:
@@ -304,6 +319,9 @@ platform-skills/
 │   ├── awesome-docs/                       # Animated SVG templates: arch-flow, lifecycle-loop, field-carousel, timeline-phases (v1.21.0)
 │   └── compliance/                     # SOC 2 Terraform examples (v1.6.0)
 │       ├── checkov-config.yaml         # Checkov config grouped by SOC 2 criterion
+│       ├── .pre-commit-checkov.yaml    # Pre-commit hook template
+│       ├── checkov-terraform-plan.sh   # Plan-mode scan script
+│       └── custom-checks/             # Custom check scaffold
 │       ├── iam/                        # CC6.1/CC6.2: IAM, IRSA, OIDC, SCPs
 │       ├── logging/                    # CC7.2: CloudTrail, Config, VPC flow logs
 │       ├── network/                    # CC6.6: WAF, security groups, flow logs
@@ -325,7 +343,7 @@ platform-skills/
 
 ## Roadmap
 
-**Current release: v1.29.0** — 32 commands, 38 domain reference guides, 50+ wiki pages.
+**Current release: v1.37.0** — 40 commands, 40 domain reference guides, 50+ wiki pages.
 
 Full version history is in [CHANGELOG.md](CHANGELOG.md).
 
