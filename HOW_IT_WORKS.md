@@ -33,7 +33,7 @@ When you install `platform-skills`, the agent gets access to:
 | `agents/openai.yaml` | Codex UI metadata and default prompt |
 | `references/*.md` | Deep-dive guides loaded on demand when relevant to the question |
 | `examples/` | Working code the agent can point to or adapt |
-| `commands/*.md` | Claude slash command definitions — predefined prompt templates for repeatable workflows |
+| `skills/<name>/SKILL.md` | One skill per domain. Each runs as `/platform-skills:<name>` and Claude can also load it on its own when its description matches the task. `skills/platform-skills/` is the cross-domain router |
 | `.cursorrules` and `.cursor/rules/*.mdc` | Cursor project and scoped file rules |
 
 ### When a Skill Activates
@@ -121,6 +121,10 @@ Slash commands are predefined Claude workflows. In Codex or Cursor, ask for the 
 | `/platform-skills:keda` | KEDA ScaledObject/ScaledJob — generate, debug, review, or design a scaling strategy |
 | `/platform-skills:gateway-api` | You run ingress-nginx and need to move to Gateway API, or a Gateway, HTTPRoute or listener certificate is not working |
 | `/platform-skills:karpenter` | Karpenter NodePool/EC2NodeClass — generate, debug, review, audit scale history, plan capacity, migrate from CA, upgrade |
+| `/platform-skills:cluster-upgrade` | Plan, scan, run or roll back a Kubernetes minor-version upgrade, including EKS one-step version rollback |
+| `/platform-skills:progressive-delivery` | Add Flagger canaries with metric-gated promotion and automatic rollback, or debug a canary that will not promote |
+| `/platform-skills:backup-dr` | Install Velero, design schedules, run a timed restore drill, restore a namespace, or plan DR to another cluster |
+| `/platform-skills:finops` | Estimate a Terraform PR's cost, allocate in-cluster cost with OpenCost, or enforce cost-allocation tags |
 | `/platform-skills:setup-agents` | Scaffold multi-agent AI setup — generate, upgrade, add, review |
 | `/platform-skills:self-improve` | Bootstrap `.learnings/` workspace, log errors/learnings, resume after interruption, review patterns, promote to project memory |
 | `/platform-skills:supply-chain` | Sign images, generate SBOMs, run CVE gates, enforce image signatures, generate SLSA provenance |
@@ -422,7 +426,7 @@ Informational:
 You: /platform-skills:pr-review compliance [paste diff]
 
 Claude:
-  1. Reads commands/pr-review.md → loads compliance mode definition
+  1. Reads skills/pr-review/SKILL.md → loads compliance mode definition
   2. Reads references/pr-review.md → loads SOC 2 control mapping table
   3. Reads references/compliance.md → loads Terraform patterns and evidence commands
   4. Parses the diff — identifies IAM, RDS, S3, and network resource changes
