@@ -5,6 +5,36 @@ All notable changes to Platform Skills will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.43.0] - 2026-10-11
+
+Replaces the retired ingress-nginx controller as the handbook's reference ingress and adds `/platform-skills:gateway-api` to migrate existing clusters (45 commands total). ingress-nginx best-effort maintenance ended in March 2026: no releases, bug fixes or security fixes since. Existing installs keep running, which is exactly why the handbook should stop recommending it.
+
+### Added
+
+- **`/platform-skills:gateway-api`** with seven modes: `assess` (annotation and controller-ConfigMap inventory, each item classified auto, decision or blocked), `convert` (ingress2gateway v1.2.0 per namespace, rewritten for a platform-owned shared Gateway), `scaffold`, `cutover` (per-hostname shadow test, TTL plan, soak criteria, a decommission gate kept out of the cutover change), `debug` (by Gateway API condition reason), `review` and `rollback`
+- **`references/gateway-api.md`**: implementation choice (Envoy Gateway default, Cilium, Istio, NGINX Gateway Fabric, AWS Load Balancer Controller), ownership model, CRD channel and deletion policy, the ingress2gateway annotation coverage table, cert-manager listener TLS, Flux layering, a seven-phase parallel-run migration, rollback by stage, and troubleshooting
+- **`examples/gateway-api/`**: a before/after pair for one Ingress (timeout, CIDR allowlist with explicit client-IP detection, `configuration-snippet`), and `gateway-api-validate.sh`, which builds every Flux overlay, runs `kubeconform -strict` against the CRD catalog, and fails if any manifest outside the frozen evals still references ingress-nginx
+
+### Changed
+
+- **`examples/fluxcd/basic-monorepo` runs Gateway API on Envoy Gateway v1.9.2** with cert-manager v1.21.2, in three Flux layers: `infrastructure` (CRDs and controllers) → `infrastructure-configs` (GatewayClass, EnvoyProxy, shared Gateway, 308 HTTPS redirect, ClusterIssuer) → `apps` (HTTPRoute). The split is required because a Gateway cannot be dry-run before its CRDs exist. The configs layer gates on the Gateway's `Programmed` condition through `healthCheckExprs`
+- **Gateway API CRDs are the standard channel, applied as plain manifests by two Flux Kustomizations with `prune: false` and `deletionPolicy: Orphan`** (`clusters/<env>/gateway-crds.yaml`). Not a Helm release: the CRDs are about 3.7 MB rendered (EnvoyProxy alone is about 1.4 MB), too large for a Helm release Secret capped at 1 MiB, and Envoy Gateway's own CRD chart README says not to `helm install` it. The controller chart's bundled CRDs are the experimental channel plus an admission policy that rejects them over standard ones, so they stay off. Deleting a CRD deletes every Gateway and HTTPRoute in the cluster, so neither removing a CRD from the source nor deleting the Kustomization deletes one
+- **Production Envoy proxies are spread across nodes.** Two replicas and a PDB do not survive a node failure if both pods land on one node. The `EnvoyProxy` adds a `kubernetes.io/hostname` topology spread (`DoNotSchedule`), scoped per Gateway with `matchLabelKeys`. The production overlay no longer adds a CPU limit to the controller, matching the repository baseline of CPU requests plus memory-only limits
+- **Each HTTPS listener is bound to the namespace that owns its hostname**, via the immutable `kubernetes.io/metadata.name` label. A shared `gateway-access` opt-in label let every onboarded team attach to every listener and serve paths on another team's hostname. App namespaces are also created in the platform layer (`infrastructure/configs/base/app-namespaces.yaml`), not under `apps/`
+- **NetworkPolicies** in `examples/kubernetes` and `examples/helm/web-service` admit the Envoy proxy pods (namespace and pod selector) instead of the ingress-nginx namespace. In the web-service chart the source is `networkPolicy.ingressFrom`, so enabling the chart's optional `Ingress` with another controller does not silently drop its traffic
+- **`examples/demo/flux-stuck-release`** teaches the same lessons on trust-manager v0.25.0, with `demo.gif` re-recorded
+- The frozen `evals/token-optimizer/*/evidence/` fixtures are deliberately unchanged, so token baselines stay comparable
+- **Copilot and Cursor carry the same guidance**, not only Claude: `.github/copilot-instructions.md`, `.cursorrules`, `.cursor/rules/kubernetes.mdc` and `.cursor/rules/platform-skills.mdc` gain an ingress rule block (never ingress-nginx for new work, shared Gateway ownership, standard-channel CRDs with `keep`, cert-manager listener TLS, Flux layering, parallel-run migration). `EDITOR_INTEGRATIONS.md` adds natural-language `gateway-api` prompts for Copilot and Cursor chat. Codex links the repo as a skill and picks up `SKILL.md` and `references/gateway-api.md` directly
+
+### Fixed
+
+- **`basic-monorepo` infrastructure overlays did not build.** `namespaces.yaml` and each component's `namespace.yaml` declared the same Namespace twice, so `kustomize build` failed
+- **`HelmRepository` used `source.toolkit.fluxcd.io/v1beta2`**, which Flux 2.9 no longer serves
+- **`healthCheckExprs` samples in `references/fluxcd-kustomization.md` and `references/fluxcd-helmrelease.md` could never report a Deployment healthy.** They used `object.status` (Flux evaluates the expression against the resource itself, so it is `status`), and their `inProgress` on `Progressing=True` runs before `current` and stays true after a finished rollout. The samples now show a Gateway `Programmed` check and say to leave built-in kinds to kstatus
+- **The cutover shadow test used `curl --resolve`, which only accepts an IP.** Cloud load balancers often publish a hostname as the Gateway address. `--connect-to` accepts either and keeps the URL host for `Host` and TLS SNI
+- **CI never schema-checked the Flux examples, and skipped every custom resource.** The kubeconform step in `validate.yml` matched `./examples/flux/*`, a directory renamed to `examples/fluxcd` in May 2026, and `-ignore-missing-schemas` without a CRD schema source skipped every Flux, Gateway API, cert-manager and Flux Operator object. It now covers `examples/fluxcd` and `examples/gateway-api` and runs `-strict` against the datreeio CRDs catalog pinned to a commit (67 files, all passing)
+- **Flux Operator examples used fields the CRDs do not have**, which the API server silently drops: `FluxInstance` `cluster.clusterDomain` (the field is `cluster.domain`) and `ResourceSetInputProvider` `spec.interval` (the interval is the `fluxcd.controlplane.io/reconcileEvery` annotation). Fixed in `examples/fluxcd/flux-operator`, `examples/fluxcd/image-automation/gitless`, `references/fluxcd-operator.md` and `references/fluxcd.md`
+
 ## [1.42.0] - 2026-09-27
 
 Rewrites `/platform-skills:triage` for reliability, the first of two capability-reliability passes in this release — replaces every hand-rolled `gh api`/jq call behind the command with a 12-subcommand stdlib-only helper CLI (17 operations counting `worktree`'s and `state`'s own nested actions), splits finding classification from fix-execution and discussion state, and adds `--dry-run`/`--no-resolve` controls.

@@ -249,7 +249,7 @@ gh copilot suggest "$(cat your-deployment.yaml) — review this for production r
 
 ## Skill workflows in Copilot and Cursor
 
-Platform skills ships 44 command workflows. In Claude Code they are slash commands (`/platform-skills:preflight`). In Copilot Chat and Cursor Chat you phrase them as natural language — the instructions or rules files make the assistant apply the same structured output.
+Platform skills ships 45 command workflows. In Claude Code they are slash commands (`/platform-skills:preflight`). In Copilot Chat and Cursor Chat you phrase them as natural language — the instructions or rules files make the assistant apply the same structured output.
 
 ### review — production-readiness check on any file
 
@@ -431,6 +431,32 @@ Review this ScaledObject and TriggerAuthentication for security issues. Check: a
 **ScaledJob for batch processing:**
 ```
 Generate a KEDA ScaledJob that processes SQS messages as batch Kubernetes Jobs — one Job per message. Use IRSA, set activeDeadlineSeconds to prevent zombie jobs, and apply container security hardening.
+```
+
+---
+
+### gateway-api — migrate off ingress-nginx
+
+**Assess what blocks the migration:**
+```
+We run ingress-nginx. Here is the annotation inventory from `kubectl get ingress -A -o json`. Classify each annotation as converts automatically, needs a decision, or blocks the migration, using the platform-skills Gateway API rules.
+[paste output]
+```
+
+**Convert one Ingress:**
+```
+Convert this ingress-nginx Ingress to a Gateway API HTTPRoute that attaches to our shared platform-gateway in envoy-gateway-system. Move TLS to the Gateway listener, keep every host and path, and list anything that does not translate.
+[paste YAML]
+```
+
+**Debug a route that will not attach:**
+```
+My HTTPRoute status shows Accepted=False with reason NotAllowedByListeners. Give me the evidence to collect and the most likely causes in order.
+```
+
+**Plan the cutover:**
+```
+Plan a parallel-run cutover from ingress-nginx to Envoy Gateway for payments.example.com: shadow test, DNS TTL, soak criteria, decommission gate, and the rollback at each stage.
 ```
 
 ---

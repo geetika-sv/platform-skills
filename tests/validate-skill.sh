@@ -129,6 +129,7 @@ REQUIRED_REFERENCES=(
   references/trivy.md
   references/zizmor.md
   references/kingfisher.md
+  references/gateway-api.md
 )
 
 for ref in "${REQUIRED_REFERENCES[@]}"; do
@@ -329,6 +330,7 @@ VALIDATE_SCRIPTS=(
   "examples/runtime-security/runtime-security-validate.sh"
   "examples/chaos/chaos-validate.sh"
   "examples/dora/dora-validate.sh"
+  "examples/gateway-api/gateway-api-validate.sh"
 )
 
 for script in "${VALIDATE_SCRIPTS[@]}"; do

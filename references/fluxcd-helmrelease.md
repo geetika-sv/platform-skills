@@ -167,28 +167,28 @@ spec:
   dependsOn:
     - name: cert-manager
       namespace: cert-manager
-    - name: ingress-nginx
-      namespace: ingress-nginx
+    - name: envoy-gateway
+      namespace: envoy-gateway-system
 ```
 
 ---
 
 ## Health check expressions
 
-CEL expressions for custom resource readiness — evaluated when `wait: true` is active:
+CEL expressions for custom resource readiness, evaluated when `wait: true` is active:
 
 ```yaml
 spec:
   healthCheckExprs:
-    - apiVersion: apps/v1
-      kind: Deployment
-      current: >
-        object.status.conditions.filter(e, e.type == 'Available').all(e, e.status == 'True')
-      inProgress: >
-        object.status.conditions.filter(e, e.type == 'Progressing').exists(e, e.status == 'True')
-      failed: >
-        object.status.replicas > 0 && object.status.readyReplicas == 0
+    # Gateway has no Ready condition, so kstatus alone reports it healthy before
+    # it has an address. Programmed=True means the data plane is serving.
+    - apiVersion: gateway.networking.k8s.io/v1
+      kind: Gateway
+      failed: status.conditions.exists(e, e.type == 'Accepted' && e.status == 'False')
+      current: status.conditions.exists(e, e.type == 'Programmed' && e.status == 'True')
 ```
+
+Use expressions only for custom resources whose readiness kstatus cannot read. Built-in kinds such as Deployment already get kstatus's rollout-aware check; do not redefine them. A hand-written Deployment rule is easy to get wrong: Flux evaluates `inProgress` before `current`, and a finished Deployment keeps `Progressing=True`, so an `inProgress` on that condition never lets it become healthy. Expressions evaluate against the resource itself: `status.…`, not `object.status.…`.
 
 ---
 
