@@ -174,12 +174,16 @@ Greenfield: `--severity-threshold high`. Brownfield (the first scan shows dozens
 ```bash
 # base: the target branch, scanned from a worktree of the same clone
 git worktree add --detach ../base origin/main
-(cd ../base && kubescape scan framework nsa k8s --controls-version v2.0.38 --format json --output /tmp/base.json)
+(cd ../base && kubescape scan framework nsa k8s --controls-version v2.0.38 \
+  --honor-inline-exceptions=false --format json --output /tmp/base.json)
 
 # head: the PR, compared to the base
 kubescape scan framework nsa k8s --controls-version v2.0.38 \
+  --honor-inline-exceptions=false \
   --baseline /tmp/base.json --baseline-fail-on-new --baseline-severity-threshold high
 ```
+
+`--honor-inline-exceptions=false` on both scans: otherwise a change can add a `kubescape.io/skip-controls` annotation next to its new finding and pass (see Exceptions).
 
 Measured with 11 existing failures on main:
 

@@ -106,4 +106,4 @@ Do not use `kubescape/github-action`. It pins CLI v3.0.21 inside a Docker image 
 
 ## Release
 
-Branch `feat/kubescape` on the fork `geetika-sv/platform-skills`, PR to `nitinjain999/platform-skills` titled `feat(kubescape): add /platform-skills:kubescape and kubescape-operator — v1.44.0`. The maintainer merges, tags `v1.44.0` (which triggers `release.yml`), and repins `marketplace.json` `source.sha` in the follow-up PR, as for 1.41.0–1.43.0.
+Branch `feat/kubescape` on the fork `geetika-sv/platform-skills`, PR to `nitinjain999/platform-skills` titled `feat(kubescape): add /platform-skills:kubescape and kubescape-operator — v1.44.0`. The maintainer merges it, then merges a follow-up PR that touches only `.claude-plugin/marketplace.json` and repins `source.sha` to the merged content commit (as #207 did for 1.43.0), and only then tags `v1.44.0`. `release.yml` rejects a tag whose `source.sha` differs from the tagged tree anywhere outside `marketplace.json`, so tagging before the repin fails.
