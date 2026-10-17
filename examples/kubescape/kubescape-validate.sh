@@ -203,12 +203,16 @@ for s in doc["jobs"]["posture"]["steps"]:
     fail "exception check must use \$EXCEPTIONS, not a hard-coded hashFiles() path"
   else
     tmpx="$(mktemp -d)"
-    mk() { printf '[{"name":"%s","policyType":"postureExceptionPolicy","actions":["%s"],"resources":[{"designatorType":"Attributes","attributes":{"kind":".*"}}],"posturePolicies":[{"controlID":"C-0030"}]}]' "$1" "$2" > "$tmpx/$3.json"; }
-    mk "accepted-until-2999-12-31" disable valid
-    mk "accepted-until-2000-01-01" disable expired
-    mk "accepted-without-a-date" disable undated
-    mk "known-issue-kept-visible" alertOnly alertonly
-    for c in valid:0 alertonly:0 expired:1 undated:1 missing:0; do
+    mk() { printf '[{"name":"%s","policyType":"postureExceptionPolicy","actions":%s,"resources":[{"designatorType":"Attributes","attributes":{"kind":".*"}}],"posturePolicies":[{"controlID":"C-0030"}]}]' "$1" "$2" > "$tmpx/$3.json"; }
+    mk "accepted-until-2999-12-31" '["disable"]' valid
+    mk "accepted-until-2000-01-01" '["disable"]' expired
+    mk "accepted-without-a-date" '["disable"]' undated
+    mk "known-issue-kept-visible" '["alertOnly"]' alertonly
+    # Kubescape disables when ANY action is "disable" (armoapi-go IsDisable), and
+    # disable wins over alertOnly, so a mixed list still suppresses the finding.
+    mk "mixed-until-2000-01-01" '["alertOnly","disable"]' mixed_expired
+    mk "mixed-without-a-date" '["alertOnly","disable"]' mixed_undated
+    for c in valid:0 alertonly:0 expired:1 undated:1 mixed_expired:1 mixed_undated:1 missing:0; do
       f="${c%%:*}"; want="${c##*:}"
       if EXCEPTIONS="$tmpx/$f.json" bash -c "$step" >/dev/null 2>&1; then got=0; else got=1; fi
       if [ "$got" = "$want" ]; then pass "exception policy: $f → exit $got"; else fail "exception policy: $f → exit $got, want $want"; fi

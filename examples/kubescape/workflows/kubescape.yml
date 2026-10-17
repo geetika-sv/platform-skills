@@ -87,9 +87,11 @@ jobs:
           # Convention: every "disable" exception (an accepted risk; it removes
           # the finding from the score and the gate) ends in -until-YYYY-MM-DD.
           # Undated ones would suppress forever, so they fail like expired ones.
+          # Kubescape disables when ANY action is "disable" (it wins over
+          # alertOnly), so match membership, not the exact list.
           today="$(date -u +%F)"
           bad="$(jq -r --arg today "$today" '
-            .[] | select(.actions == ["disable"])
+            .[] | select(any(.actions[]?; . == "disable"))
                 | (.name | capture("until-(?<d>[0-9]{4}-[0-9]{2}-[0-9]{2})$").d // null) as $d
                 | if $d == null then "\(.name)  (no until-YYYY-MM-DD date)"
                   elif $d < $today then "\(.name)  (expired \($d))"
