@@ -168,7 +168,7 @@ Never: `kubescape/github-action` (bundles CLI v3.0.21), `tj-actions/changed-file
 
 1. Identify control ID, resource kind, namespace and name from the user or the last report.
 2. Ask the reason and review date (Layer 3).
-3. Write the entry to `.kubescape/exceptions.json` with `"actions": ["disable"]` and the name ending `-until-YYYY-MM-DD`. Use `"alertOnly"` only when the user wants the finding to keep failing (acknowledged, still tracked).
+3. Write the entry to `.kubescape/exceptions.json` with `"actions": ["disable"]` and the name ending `-until-YYYY-MM-DD`. Use `"alertOnly"` only when the user wants the finding to keep failing (acknowledged, still tracked). Never any other `actions` form: an empty list, a missing field, a mixed list or a typo all suppress like `disable`.
 4. Re-run the scan with `--exceptions` and show the control moving to `passed (w/exceptions)`.
 5. Ask whether the exception should also exist in the cluster: `SecurityException` with `expiresAt` → `/platform-skills:kubescape-operator exceptions`.
 

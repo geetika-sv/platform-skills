@@ -225,6 +225,8 @@ An exceptions file is a JSON array of `postureExceptionPolicy` entries, passed w
 
 The opa-utils source (v0.0.315) says it directly: "An alertOnly exception acknowledges the finding without suppressing it … Only a disable action removes the finding from the results." Use `disable` for a reviewed, accepted risk; use `alertOnly` to mark a known issue that should keep failing.
 
+**Only exactly `["alertOnly"]` keeps a finding failing.** armoapi-go v0.0.730 `IsAlertOnly()` is true only when the list contains `alertOnly` and no `disable`, and opa-utils suppresses every exception that is not alert-only. So a list that also contains `disable`, an empty list, a missing `actions` field and an unknown value all suppress — measured: `[]`, no field and `["alertOnly","disable"]` each moved C-0030 to `passed (w/exceptions)` and passed the gate. Write exactly `["disable"]` or `["alertOnly"]`; the CI workflow rejects every other form.
+
 Matching:
 - `resources` entries are ORed; `posturePolicies` entries are ORed; keys inside one object are ANDed (`{"frameworkName": "NSA", "controlID": "C-0041"}` = that control in that framework only).
 - `name`, `kind`, `namespace`, `cluster`, `frameworkName`, `controlID`, `ruleName` take regular expressions (`"name": "aws-node|kube-proxy"`); label keys match exactly.
