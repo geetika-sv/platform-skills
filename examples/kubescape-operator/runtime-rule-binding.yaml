@@ -1,0 +1,19 @@
+# alertCRD.installDefault: true already binds all 28 default rules to every
+# namespace not in excludeNamespaces (binding "all-rules-all-pods"). This binding
+# covers what that skips: system namespaces, with only the high-signal rules.
+# Anomaly rules (R0001–R0011) are left out here on purpose — system pods change
+# behaviour on every node or CNI upgrade and would page on noise.
+apiVersion: kubescape.io/v1
+kind: RuntimeRuleAlertBinding
+metadata:
+  name: system-namespaces-high-signal   # cluster-scoped
+spec:
+  namespaceSelector:
+    matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: In
+        values: ["kube-system"]
+  rules:
+    - ruleTags: ["malicious"]   # R1000, R1001, R1003, R1005, R1007, R1008, R1009, R1011, R1012, R1015
+    - ruleID: "R1002"           # Process tries to load a kernel module
+    - ruleID: "R1006"           # Process tries to escape container

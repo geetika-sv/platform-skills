@@ -16,6 +16,7 @@ Behavioural evals for this plugin, run with [`claude plugin eval`](https://code.
 | `secrets-trigger` | `secrets`, `trigger` | New: a Secret rotation question | 2 regex (ESO specifics, rollback) + skill fired, which must be `secrets`, not `kubernetes` |
 | `kyverno-trigger` | `kyverno`, `trigger` | New: an admission-policy request | 2 regex (Audit first, CEL policy types) + skill fired, which must be `kyverno`, not `opa` or `kubernetes` |
 | `openshift-trigger` | `openshift`, `trigger` | New: an SCC admission error | 2 regex (SCC named, least-privilege grant) + skill fired, which must be `openshift`, not `kubernetes` |
+| `kubescape-trigger` | `kubescape`, `trigger` | New (1.44.0): a CIS audit on EKS plus a PR gate that ignores existing debt | 2 regex (`cis-eks-t1.8.0`, `--baseline`) + skill fired, which must be `kubescape`, not `kubescape-operator`, `trivy` or `kyverno`. No baseline score yet: judged against the floor until the next `--all --update-baseline` run |
 
 Every grader is free (`regex` or `tool_used`), so a run costs only the agent calls. Each case also has a `tool_used: Skill` grader: a correct answer that did not come from the plugin is a finding, not a pass.
 

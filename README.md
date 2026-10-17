@@ -3,9 +3,9 @@
 > A production-grade field handbook for platform, DevOps, SRE, and cloud engineers covering Kubernetes, Flux CD, Terraform, GitHub Actions, AWS, OPA/Rego, KEDA, Karpenter, supply chain security, Falco, observability, and more. Use it on GitHub, as a local reference, or with Claude, Codex, Cursor, and Copilot for interactive guidance with blast radius, validation steps, and rollback plans built in.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-v1.43.0-0e1117)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-v1.44.0-0e1117)](CHANGELOG.md)
 [![Domains](https://img.shields.io/badge/Domains-69-4c8eda)](references/)
-[![Commands](https://img.shields.io/badge/Commands-49-e87c2b)](skills/)
+[![Commands](https://img.shields.io/badge/Commands-51-e87c2b)](skills/)
 [![Examples](https://img.shields.io/badge/Examples-28-6f42c1)](examples/)
 [![Editors](https://img.shields.io/badge/Editors-VSCode%20%7C%20Cursor%20%7C%20Copilot-2ea44f)](EDITOR_INTEGRATIONS.md)
 [![GitHub Stars](https://img.shields.io/github/stars/nitinjain999/platform-skills?style=flat&label=Stars&color=0e1117)](https://github.com/nitinjain999/platform-skills/stargazers)
@@ -16,7 +16,7 @@
 
 | Tool | What you get |
 |---|---|
-| **Claude Code** | 49 slash commands (`/platform-skills:preflight`, `/platform-skills:kubernetes`, `/platform-skills:secrets`, and more), interactive guidance, automatic activation on relevant files |
+| **Claude Code** | 51 slash commands (`/platform-skills:preflight`, `/platform-skills:kubernetes`, `/platform-skills:secrets`, and more), interactive guidance, automatic activation on relevant files |
 | **Codex** | Skill invocation with `$platform-skills`, loaded on demand in any Codex session |
 | **Cursor** | Project rules for Chat and Agent — platform review and generation in every file context |
 | **GitHub Copilot plugin** | Interactive slash commands in Copilot Chat — install once per user via `copilot plugin install` |
@@ -157,6 +157,8 @@ All layers work independently. Agent integrations are optional.
 | 🐤 Progressive Delivery | [references/progressive-delivery.md](references/progressive-delivery.md) | Flagger canaries on Gateway API (Envoy Gateway, Linkerd), MetricTemplates scoped to the canary pods, GitOps interplay, automatic and emergency rollback — `/platform-skills:progressive-delivery` |
 | 💾 Backup / DR | [references/backup-dr.md](references/backup-dr.md) | Velero on EKS with IRSA, schedules and retention, what a backup does not contain, timed restore drills, DR to another cluster — `/platform-skills:backup-dr` |
 | 💸 FinOps | [references/finops.md](references/finops.md) | Infracost cost diff on Terraform PRs, cost-allocation tags enforced in four layers (Terraform, Conftest, AWS Config, Kyverno), OpenCost allocation — `/platform-skills:finops` |
+| 🛡️ Kubescape | [references/kubescape.md](references/kubescape.md) | Posture for manifests, Helm charts and clusters against NSA, MITRE, CIS (EKS, AKS, GKE) and SOC2, PR gate on new findings with `--baseline`, exceptions that suppress, auto-fix limits, CEL admission policies — `/platform-skills:kubescape` |
+| 🛰️ Kubescape Operator | [references/kubescape-operator.md](references/kubescape-operator.md) | In-cluster posture, relevancy-ranked CVEs, eBPF runtime detection, NetworkPolicies from observed traffic, SecurityException with expiry, Prometheus alerts, kernel preflight — `/platform-skills:kubescape-operator` |
 | 🤖 Agent Self-Improvement | [references/agent-self-improve.md](references/agent-self-improve.md) | `.learnings/` directory setup, LRN/ERR/FEAT entry lifecycle, WAL protocol, working buffer, VFM scoring, ADL decision logic, Six Operating Pillars, heartbeat, reverse prompting, proactive agent behavior — `/platform-skills:self-improve` |
 | 🔗 Supply Chain Security | [references/supply-chain.md](references/supply-chain.md) | Cosign keyless signing, Syft SBOM generation and attestation, Trivy/Grype CVE scanning with severity gates, SLSA Level 2 provenance, Kyverno ImageValidatingPolicy enforcement — `/platform-skills:supply-chain` |
 | 🦅 Runtime Security | [references/runtime-security.md](references/runtime-security.md) | Falco eBPF deployment on EKS/GKE, custom rule authoring, Falcosidekick alert routing, rule debugging, bridging Falco signals to Kyverno admission enforcement — `/platform-skills:runtime-security` |
@@ -314,6 +316,8 @@ platform-skills/
 │   ├── progressive-delivery.md         # Flagger canaries on Gateway API (v1.43.0)
 │   ├── backup-dr.md                    # Velero backups and restore drills (v1.43.0)
 │   ├── finops.md                       # Infracost, cost tags, OpenCost (v1.43.0)
+│   ├── kubescape.md                    # NSA/MITRE/CIS/SOC2 posture, PR gate, exceptions, VAP (v1.44.0)
+│   ├── kubescape-operator.md           # Operator capabilities, runtime detection, NetworkPolicies (v1.44.0)
 │   ├── llm-observability.md                # Datadog LLMObs: instrumentation, evals, trace RCA (v1.20.0)
 │   └── awesome-docs.md                     # Animated SVG doc generation — 4 patterns, GitHub-safe CSS (v1.21.0)
 │
@@ -334,6 +338,8 @@ platform-skills/
 │   ├── progressive-delivery/           # Flagger via Flux, Canary and MetricTemplates (v1.43.0)
 │   ├── backup-dr/                      # Velero via Flux, IAM policy, restore drill script (v1.43.0)
 │   ├── finops/                         # Tag enforcement, OpenCost, Infracost workflow (v1.43.0)
+│   ├── kubescape/                      # Before/after manifests, exceptions, baseline PR gate, validator (v1.44.0)
+│   ├── kubescape-operator/             # Flux install, SecurityException, rule binding, alerts, validator (v1.44.0)
 │   ├── awesome-docs/                       # Animated SVG templates: arch-flow, lifecycle-loop, field-carousel, timeline-phases (v1.21.0)
 │   └── compliance/                     # SOC 2 Terraform examples (v1.6.0)
 │       ├── checkov-config.yaml         # Checkov config grouped by SOC 2 criterion
@@ -361,7 +367,7 @@ platform-skills/
 
 ## Roadmap
 
-**Current release: v1.43.0** — 49 commands, 69 domain reference guides, 50+ wiki pages.
+**Current release: v1.44.0** — 51 commands, 71 domain reference guides, 50+ wiki pages.
 
 Full version history is in [CHANGELOG.md](CHANGELOG.md).
 

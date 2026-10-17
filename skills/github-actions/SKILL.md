@@ -138,6 +138,8 @@ promote:
 
 Read `references/github-actions.md` before responding.
 
+Repositories with Kubernetes manifests or Helm charts: the posture gate is `/platform-skills:kubescape ci` (signature-verified CLI install, fails PRs only on new findings). Do not use `kubescape/github-action`: its latest release bundles CLI v3.0.21 and its README pins `@main`.
+
 ### OIDC federation — AWS
 
 ```yaml

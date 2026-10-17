@@ -1,5 +1,5 @@
 # Platform Engineering Instructions for GitHub Copilot
-# Version: 1.43.0
+# Version: 1.44.0
 # Source: https://github.com/nitinjain999/platform-skills
 # Scope: project-level — applies to every Copilot Chat session in this workspace
 # Install: ./install.sh --copilot --target /path/to/your-project
@@ -193,6 +193,18 @@ For container and deployment pipelines, prefer:
 
 For runtime security, treat Falco findings as signals that need triage, ownership, severity, and follow-up policy where appropriate. Do not convert every runtime signal directly into a blocking admission policy without checking noise, scope, and rollout plan.
 
+## Kubernetes Posture (Kubescape)
+
+For manifests, Helm charts and clusters checked against NSA, MITRE, CIS or SOC2:
+- Install the CLI from the release with `cosign verify-blob` on `checksums.sha256` (identity `…/kubescape/.github/workflows/02-release.yaml@refs/tags/v<version>`), then `sha256sum --check`
+- A scan exits 0 without a gate: pass `--severity-threshold`, `--compliance-threshold`, or `--baseline <base.json> --baseline-fail-on-new`
+- PR gates on existing repos use `--baseline`, with the base branch scanned from a `git worktree` of the same clone
+- Pin `--controls-version` in CI
+- Exceptions that should stop a gate use `"actions": ["disable"]`; `alertOnly` keeps the control failing
+- Operator installs pin the chart and set `kubescape.image.tag` ≥ v4.0.14 (chart 1.40.4 bundles v4.0.13, whose `all` scans fail)
+
+Never generate: `kubescape/github-action` (bundles CLI v3.0.21), `tj-actions/changed-files`, `--fail-threshold` (removed), `kubectl get applicationprofiles`/`networkneighborhoods` (removed; use `containerprofiles`), `capabilities.remediation: enable`, a generated NetworkPolicy applied directly to production.
+
 ## Kyverno (policies.kyverno.io/v1)
 
 Always use the new CEL-based policy types — never `kyverno.io/v1` ClusterPolicy for new work:
@@ -339,6 +351,8 @@ When reviewing any PR that touches infrastructure, check all six dimensions:
 - `references/progressive-delivery.md` — Flagger canaries on Gateway API and Linkerd, MetricTemplates, GitOps interplay, rollback
 - `references/backup-dr.md` — Velero with IRSA, schedules, what a backup does not contain, restore drills, DR to another cluster
 - `references/finops.md` — Infracost on PRs, cost-allocation tags in four layers, OpenCost allocation
+- `references/kubescape.md` — Kubescape CLI: frameworks, gates, baseline PR gate, exception actions, fix, VAP
+- `references/kubescape-operator.md` — Kubescape operator: preflight, capabilities, runtime detection, generated NetworkPolicies, SecurityException, metrics
 - `references/agent-self-improve.md` — `.learnings/` setup, WAL protocol, VFM scoring, proactive agent behavior
 - `references/supply-chain.md` — Cosign signing, Syft SBOM, Trivy CVE gates, SLSA Level 2, Kyverno enforcement
 - `references/trivy.md` — image/fs/repo/SBOM/cluster CVE scanning, severity gating, Trivy Operator via Flux HelmRelease

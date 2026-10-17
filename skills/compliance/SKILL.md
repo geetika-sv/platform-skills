@@ -32,6 +32,8 @@ Enter 1–5 or topic name:
 ```
 
 > **Scanning mechanics:** To run Checkov scans — static, plan-level, multi-cloud, with fix mode — use `/platform-skills:checkov`. This command handles SOC 2 control mapping and evidence collection.
+>
+> **Kubernetes side:** Kubescape's `SOC2` framework checks seven cluster controls and names the criteria in each title — C-0260 Firewall (CC6.1, CC6.6, CC7.2), C-0012 misplaced secrets (CC6.1, CC6.6, CC6.7), C-0186 access to secrets (CC6.1, CC6.6, CC6.7), C-0035 admin access (CC6.1, CC6.2, CC6.7, CC6.8), C-0067 event logging (CC6.8, CC7.1, CC7.2), C-0263 Ingress TLS (CC6.1, CC6.6, CC6.7), C-0264 encrypted PersistentVolumes (CC1.1, CC6.7). Run it with `/platform-skills:kubescape cluster` and map the results here.
 
 **Q2 — Context** (after topic selected, one at a time):
 - **gap**: `Paste your Terraform resource(s) or describe the configuration to assess:`
@@ -85,6 +87,7 @@ When the user needs to gather evidence for an auditor:
 2. Provide copy-paste AWS CLI commands targeting that criterion
 3. Note what the output proves and what the auditor is looking for
 4. Flag if any command requires elevated permissions to run
+5. For criteria that cover the Kubernetes cluster, add a dated, per-control report: `kubescape scan framework soc2 --format json --output soc2-$(date +%F).json` (and `--format pdf` for the auditor). In-cluster accepted risks with owner and expiry are `kubectl get securityexceptions -A` (`/platform-skills:kubescape-operator exceptions`)
 
 ### remediate — Fix a Compliance Finding
 

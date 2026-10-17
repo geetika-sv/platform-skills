@@ -5,6 +5,33 @@ All notable changes to Platform Skills will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.44.0] - 2026-10-17
+
+Adds Kubescape (CNCF) as two skills, bringing the plugin to 51 commands: `/platform-skills:kubescape` for posture checks with the CLI and a PR gate, and `/platform-skills:kubescape-operator` for continuous security inside the cluster. Every command was run against Kubescape CLI v4.0.16 and the operator was installed through Flux on Kubernetes 1.36; four places where the official docs and the shipped code disagree are documented, and the examples are built around the code.
+
+### Added
+
+- **`/platform-skills:kubescape`**, **`references/kubescape.md`** and **`examples/kubescape/`**: framework choice (NSA, MITRE, CIS for EKS/AKS/GKE/vanilla picked from the node `providerID`, SOC2), measured gate exit codes (a scan without a gate always exits 0), a PR gate that fails only on new findings (`--baseline` against the base branch scanned from a `git worktree`, because the baseline compares by repository identity), exceptions, controls configuration, `kubescape fix` with what it cannot fix, the CEL `ValidatingAdmissionPolicy` library bound by control ID and promoted Warn → Deny, and one-off image scans. Interactive three-layer wizard with silent detection and a result card. The example workflow installs the CLI with `cosign verify-blob` instead of `kubescape/github-action`, whose latest release bundles CLI v3.0.21, and fails on exceptions past their `until-` date.
+- **`/platform-skills:kubescape-operator`**, **`references/kubescape-operator.md`** and **`examples/kubescape-operator/`**: kernel and overlap preflight (Falco, Trivy Operator, Kyverno, Prometheus Operator), a capability matrix with four install profiles, chart 1.40.4 via Flux with every capability set explicitly and the mutating ones (`remediation`, `autoUpgrading`) off, relevancy-ranked vulnerabilities, runtime detection against learned container profiles, generated NetworkPolicies turned into reviewed Git changes, `SecurityException` with `expiresAt`, and a `PrometheusRule` checked with `promtool test rules`. Interactive wizard and a status card.
+- **`kubescape-validate.sh`** and **`kubescape-operator-validate.sh`**, registered in `tests/validate-skill.sh`: offline checks, plus the real gate behaviour when `kubescape` is on PATH and a chart render when `helm` is.
+- **`plugin-evals/kubescape-trigger`**: a CIS-on-EKS plus PR-gate request must load `kubescape`, not `kubescape-operator`, `trivy` or `kyverno`.
+
+### Changed
+
+- **Wired into existing skills.** `preflight` runs `kubescape scan` on manifests and charts when the CLI is installed and folds failed controls into its findings; `helmchart security` scans the rendered chart first; `compliance` maps Kubescape's SOC2 framework controls to criteria and adds a dated report to evidence collection; `pr-review` reports new failed controls with `--baseline` under CC6.8; `kubernetes`, `trivy`, `runtime-security`, `kyverno`, `supply-chain`, `github-actions` and `observability` route the overlapping questions.
+
+### Fixed
+
+- `tests/validate-skill.sh` no longer aborts silently when an example directory is missing (`find` under `pipefail`); it reports the missing domain as a failure.
+- `tests/validate-ci.sh`'s PyYAML fallback (used when `yamllint` is not installed) parsed with `yaml.safe_load`, which rejects multi-document files, so 25 valid manifests failed on every machine without yamllint; it now uses `yaml.safe_load_all`.
+
+### Notes
+
+- **Chart 1.40.4 bundles scanner v4.0.13, whose `all` framework scans fail** with `framework 'C-0042' not found` against the current controls (fixed in v4.0.14, kubescape#3768). Every scheduled and operator-triggered scan uses `all`, so the example overrides `kubescape.image.tag: v4.0.16`.
+- **`alertOnly` exceptions do not suppress.** The control stays failed and still fails every gate; `"actions": ["disable"]` suppresses. The docs list `alertOnly` as the only action.
+- **`applicationprofiles` and `networkneighborhoods` are gone** (deleted by storage v0.0.331); runtime profiles are `containerprofiles`, and `kubescape.io/status: ready` means still learning.
+- **node-agent needs `CONFIG_FANOTIFY_ACCESS_PERMISSIONS`.** Docker Desktop's kernel (7.0.14-linuxkit) lacks it, so node-agent crash-loops there and Flux's install remediation uninstalls the whole release; the operator reference starts with a kernel preflight and a no-node-agent profile.
+
 ## [1.43.0] - 2026-10-11
 
 Replaces the retired ingress-nginx controller as the handbook's reference ingress and adds `/platform-skills:gateway-api` to migrate existing clusters. Also adds four domain skills (`cluster-upgrade`, `progressive-delivery`, `backup-dr`, `finops`), plugin settings (`userConfig`), a second plugin that ships the hooks, and behavioural evals (49 commands total). ingress-nginx best-effort maintenance ended in March 2026: no releases, bug fixes or security fixes since. Existing installs keep running, which is exactly why the handbook should stop recommending it.

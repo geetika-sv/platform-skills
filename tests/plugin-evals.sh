@@ -69,6 +69,7 @@ DOMAIN_MAP='
 ^(skills/(secrets|kubernetes)/|references/secrets\.md$)	secrets
 ^(skills/(kyverno|opa|kubernetes)/|references/kyverno\.md$)	kyverno
 ^(skills/(openshift|kubernetes)/|references/openshift\.md$)	openshift
+^(skills/(kubescape|kubescape-operator|trivy|kyverno)/|references/kubescape(-operator)?\.md$|examples/kubescape(-operator)?/)	kubescape
 ^(skills/platform-skills/|SKILL\.md$|\.claude-plugin/plugin\.json$|plugin-evals/|tests/plugin-evals\.sh$)	ALL
 '
 

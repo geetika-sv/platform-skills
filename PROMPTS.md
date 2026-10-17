@@ -107,6 +107,18 @@ Review this supply chain pipeline for Cosign signing, SBOM generation, provenanc
 ```
 
 ```text
+/platform-skills:kubescape how does our EKS cluster score against the CIS benchmark, and which five findings should we fix first?
+```
+
+```text
+/platform-skills:kubescape ci fail PRs that add high-severity Kubernetes misconfigurations under k8s/, without failing on existing debt.
+```
+
+```text
+/platform-skills:kubescape-operator install Kubescape in the cluster with Flux. We already run Falco; keep one runtime agent per node.
+```
+
+```text
 /platform-skills:trivy is this container image safe to ship? Set up a CI severity gate with SARIF upload and a .trivyignore policy.
 ```
 
