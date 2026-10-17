@@ -30,20 +30,28 @@ Covers all `/platform-skills:kubescape` mode logic: posture scans of manifests, 
 Laptop: `brew install kubescape` or `kubectl krew install kubescape`. Anything that gates a merge or runs on a server: download the release and verify it. Kubescape signs `checksums.sha256` keylessly from its release workflow.
 
 ```bash
-KUBESCAPE_VERSION=4.0.16
-base="https://github.com/kubescape/kubescape/releases/download/v${KUBESCAPE_VERSION}"
-os=linux; arch=amd64   # darwin / arm64 as needed
-for f in "kubescape_${KUBESCAPE_VERSION}_${os}_${arch}.tar.gz" checksums.sha256 checksums.sha256.sig checksums.sha256.pem; do
-  curl -fsSLO "$base/$f"
-done
-cosign verify-blob checksums.sha256 \
-  --certificate checksums.sha256.pem \
-  --signature checksums.sha256.sig \
-  --certificate-identity "https://github.com/kubescape/kubescape/.github/workflows/02-release.yaml@refs/tags/v${KUBESCAPE_VERSION}" \
-  --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
-sha256sum --check --ignore-missing checksums.sha256   # macOS: shasum -a 256 -c --ignore-missing
-tar -xzf "kubescape_${KUBESCAPE_VERSION}_${os}_${arch}.tar.gz" kubescape
-./kubescape version
+( # subshell: a failed download or check stops everything — nothing is extracted or run —
+  # without changing the options of the shell you paste this into
+  set -euo pipefail
+  KUBESCAPE_VERSION=4.0.16
+  base="https://github.com/kubescape/kubescape/releases/download/v${KUBESCAPE_VERSION}"
+  os=linux; arch=amd64   # darwin / arm64 as needed
+  for f in "kubescape_${KUBESCAPE_VERSION}_${os}_${arch}.tar.gz" checksums.sha256 checksums.sha256.sig checksums.sha256.pem; do
+    curl -fsSLO "$base/$f"
+  done
+  cosign verify-blob checksums.sha256 \
+    --certificate checksums.sha256.pem \
+    --signature checksums.sha256.sig \
+    --certificate-identity "https://github.com/kubescape/kubescape/.github/workflows/02-release.yaml@refs/tags/v${KUBESCAPE_VERSION}" \
+    --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+  if command -v sha256sum >/dev/null; then
+    sha256sum --check --ignore-missing checksums.sha256
+  else
+    shasum -a 256 -c --ignore-missing checksums.sha256   # macOS
+  fi
+  tar -xzf "kubescape_${KUBESCAPE_VERSION}_${os}_${arch}.tar.gz" kubescape
+  ./kubescape version
+)
 ```
 
 Expected: `Verified OK`, then `kubescape_4.0.16_linux_amd64.tar.gz: OK`. cosign v3 also prints `Flag --certificate has been deprecated` and `Flag --signature has been deprecated`: Kubescape publishes a `.sig` and `.pem`, not a bundle, so these flags are the only way to verify it. The warning is expected; a wrong identity fails with `none of the expected identities matched`.
@@ -71,15 +79,22 @@ Expected: `Verified OK`, then `kubescape_4.0.16_linux_amd64.tar.gz: OK`. cosign 
 
 Also listed: `cis-v1.10.0`, `cis-eks-t1.7.0`, `cis-aks-t1.2.0` for older audits. Names are case-insensitive (`nsa`, `NSA`); combine with commas (`nsa,mitre`).
 
-Pick the CIS benchmark from the node's `providerID`:
+Pick the CIS benchmark from the **Kubernetes distribution**, not the infrastructure. A node's `providerID` only names the cloud: a self-managed kubeadm cluster on EC2 also has `aws://…` IDs, and the 49-control EKS benchmark would then skip checks the 131-control `cis-v1.12.0` covers (Kubescape's own provider detection, k8s-interface `GetCloudProviderFromNode`, makes exactly this `aws` → EKS shortcut). Confirm the managed service:
 
 ```bash
-kubectl get nodes -o jsonpath='{.items[0].spec.providerID}'
-# aws://…   → cis-eks-t1.8.0
-# azure://… → cis-aks-t1.8.0
-# gce://…   → cis-gke-v1.9.0
-# empty or anything else (kind://, docker-desktop) → cis-v1.12.0
+kubectl version -o json | jq -r .serverVersion.gitVersion      # v1.33.5-eks-… → EKS, v1.33.5-gke.… → GKE
+kubectl get nodes -o jsonpath='{.items[0].metadata.labels.kubernetes\.azure\.com/cluster}'   # non-empty → AKS
+kubectl get nodes -o jsonpath='{.items[0].spec.providerID}'     # hint only: aws:// azure:// gce://
 ```
+
+| Signal | Benchmark |
+|---|---|
+| `gitVersion` contains `-eks-` | `cis-eks-t1.8.0` |
+| `gitVersion` contains `-gke.` | `cis-gke-v1.9.0` |
+| nodes labelled `kubernetes.azure.com/cluster` | `cis-aks-t1.8.0` |
+| none of these (kubeadm, kind, docker-desktop, self-managed on any cloud) | `cis-v1.12.0` |
+
+When the hint and the signals disagree (an `aws://` cluster without `-eks-`), or there is no cluster to ask, confirm the distribution with the user instead of guessing.
 
 **Pin the controls.** Without `--controls-version`, every scan downloads the latest regolibrary, so results can change with no code change. In CI, pin it (`--controls-version v2.0.38`) and bump it deliberately.
 

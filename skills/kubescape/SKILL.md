@@ -51,7 +51,9 @@ Run these quietly and use the answers to skip questions. Never ask what the repo
 ```bash
 command -v kubescape && kubescape version                     # installed? version?
 kubectl config current-context 2>/dev/null                     # is there a cluster?
-kubectl get nodes -o jsonpath='{.items[0].spec.providerID}' 2>/dev/null   # aws:// azure:// gce://
+kubectl version -o json 2>/dev/null | jq -r .serverVersion.gitVersion       # -eks- / -gke. → managed distribution
+kubectl get nodes -o jsonpath='{.items[0].metadata.labels.kubernetes\.azure\.com/cluster}' 2>/dev/null   # non-empty → AKS
+kubectl get nodes -o jsonpath='{.items[0].spec.providerID}' 2>/dev/null   # aws:// azure:// gce:// — a hint only
 git ls-files | grep -E '(^|/)(Chart\.yaml|kustomization\.ya?ml)$'          # charts, overlays
 git ls-files '*.yaml' '*.yml' | xargs grep -l '^kind:' 2>/dev/null | head  # plain manifests
 ls .github/workflows/ 2>/dev/null; ls .kubescape/ 2>/dev/null               # existing CI, exceptions
@@ -93,7 +95,7 @@ What should it be measured against?
   e. Hardening + attacker techniques                  → nsa,mitre  [recommended for CI]
 ```
 
-Pick the CIS benchmark from `providerID` (aws → EKS, azure → AKS, gce → GKE, otherwise vanilla); with no cluster, from the primary cloud above. Say which one and why. Skip this layer for `exceptions`, `fix` and `image`.
+Pick the CIS benchmark from the **distribution**, not the cloud: API server `gitVersion` with `-eks-` → EKS, with `-gke.` → GKE, nodes labelled `kubernetes.azure.com/cluster` → AKS, otherwise `cis-v1.12.0`. `providerID` and the primary cloud above are only hints: a self-managed cluster on EC2 also reports `aws://`. When the hints and the signals disagree, or there is no cluster, ask which distribution it is. Say which benchmark and why. Skip this layer for `exceptions`, `fix` and `image`.
 
 ### Layer 3 — Only the settings that can hurt
 
