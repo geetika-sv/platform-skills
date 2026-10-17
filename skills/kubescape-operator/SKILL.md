@@ -154,7 +154,7 @@ Upgrade: bump `version` in a PR; read the release notes; compare the new bundled
 ## Mode: netpol
 
 1. `kubectl -n <ns> get generatednetworkpolicies`; pick the workload (`<kind>-<name>`).
-2. Extract `.spec`, replace pod IPs with selectors or `policyRef` DNS names, add a namespace default-deny.
+2. Extract `.spec`. Use `policyRef` (`dns`, `server`) to identify each destination, then write in-cluster peers as `podSelector`/`namespaceSelector` and external ones as a reviewed `ipBlock` CIDR — NetworkPolicy has no hostname peers (FQDN rules need a CNI-specific policy such as Cilium `toFQDNs`). Add a namespace default-deny.
 3. Ask how long the workload has run; under one full traffic cycle (daily jobs, weekly reports) → wait.
 4. Commit for the GitOps reconciler; one namespace at a time; rollback = revert. Never `kubectl apply` the generated object to production.
 5. Hardening the rest of the namespace → `/platform-skills:kubernetes`.

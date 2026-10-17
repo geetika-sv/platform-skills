@@ -224,7 +224,7 @@ yq '.policyRef' /tmp/gnp.yaml                                                # I
 
 Before committing:
 - Wait at least one full traffic cycle (daily batch jobs, weekly reports): a policy learned in an hour blocks what happens once a day.
-- Replace observed pod IPs and `/32` blocks with selectors or the `dns` names in `policyRef`.
+- Use `policyRef` (`originalIP` → `dns`, `server`) only to identify each destination, then express it in terms a NetworkPolicy accepts: in-cluster peers as `podSelector`/`namespaceSelector`, external ones as a reviewed `ipBlock` CIDR. Standard NetworkPolicy has no hostname peers, so a DNS name in the policy is rejected by the API; FQDN egress needs a CNI-specific resource (for example Cilium `toFQDNs`, Calico DNS policy).
 - Add a default-deny for the namespace in the same PR.
 - Apply through GitOps, one namespace at a time; rollback is reverting the commit.
 
