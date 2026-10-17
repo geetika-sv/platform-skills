@@ -13,7 +13,7 @@ Chart `kubescape-operator` 1.40.4 with the scanner pinned to v4.0.16, Flux v2.9,
 | `flux/helmrelease.yaml` | Pinned chart, named cluster, every capability set explicitly with the reason, scanner image override, mutating capabilities off |
 | `flux/kustomization.yaml` | The three above, for `kubectl apply -k` or a Flux `Kustomization` |
 | `security-exception.yaml` | `SecurityException` with reason, author and `expiresAt`, suppressing one control on one Deployment |
-| `runtime-rule-binding.yaml` | `RuntimeRuleAlertBinding` adding high-signal runtime rules to `kube-system`, which the default binding excludes |
+| `runtime-rule-binding.yaml` | `RuntimeRuleAlertBinding` giving `ci-runners` signature rules only; pairs with the HelmRelease `postRenderers` patch that takes `ci-runners` out of the default all-rules binding |
 | `prometheusrule.yaml` | Five alerts on the exporter's metrics, including a fallback for clusters without relevancy and an alert when the exporter stops reporting |
 | `kubescape-operator-validate.sh` | Offline checks; renders the chart with these values when `helm` is on PATH |
 

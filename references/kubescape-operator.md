@@ -174,7 +174,12 @@ Enable: `capabilities.runtimeDetection: enable` and `alertCRD.installDefault: tr
 - `Rules/default-rules` in `kubescape`: 28 rules, R0001–R0011 (anomalies against the learned profile: unexpected process, file access, syscalls, capabilities, DNS, service-account token, Kubernetes API use, `/proc` environment reads, eBPF program load, sensitive files, egress), R1000–R1030 (signatures: malicious source, drifted binary, kernel module load, SSH, exec from mount, fileless execution, container escape, crypto miners, symlink/hardlink over sensitive files, `LD_PRELOAD`, ptrace, io_uring), R2000/R2001 (exec and port-forward to a pod, via the admission webhook).
 - `RuntimeRuleAlertBinding/all-rules-all-pods` (cluster-scoped): every rule, every namespace not in `excludeNamespaces`.
 
-Add bindings for what the default skips, for example system namespaces with high-signal rules only (`examples/kubescape-operator/runtime-rule-binding.yaml`; select by `ruleID`, `ruleName` or `ruleTags`).
+**A binding cannot reach an excluded namespace.** The chart passes `excludeNamespaces` (or `includeNamespaces`) to node-agent itself, and node-agent v0.3.219 never traces pods there (`Config.SkipNamespace`), so a binding for `kube-system` with the default values never fires. Covering such a namespace means removing it from `excludeNamespaces`, which also adds it to posture and CVE scans and to the default all-rules binding.
+
+To narrow detection for a noisy namespace instead (CI runners: every build starts new processes, so anomaly rules fire constantly), do two things together, as in the example (select rules by `ruleID`, `ruleName` or `ruleTags`):
+
+1. `examples/kubescape-operator/runtime-rule-binding.yaml`: signature rules only (`ruleTags: [malicious]`, R1002, R1006) for `ci-runners`.
+2. A HelmRelease `postRenderers` patch that appends `ci-runners` to the `NotIn` list of `all-rules-all-pods`, so the anomaly rules stop there. Verified through Flux: the installed binding ends `…,flux-system,ci-runners`. The patch assumes `includeNamespaces` is empty (the default binding then selects with `NotIn`).
 
 ### Learning period
 

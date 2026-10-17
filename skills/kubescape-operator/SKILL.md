@@ -147,7 +147,7 @@ Upgrade: bump `version` in a PR; read the release notes; compare the new bundled
 1. Preflight passed? Falco on the same nodes? (Layer 3 overlap.)
 2. `capabilities.runtimeDetection: enable`, `alertCRD.installDefault: true`; one node pool first.
 3. Learning: list `containerprofiles` with `kubescape.io/status` and `kubescape.io/completion`; explain `ready` = still learning, `completed` = active.
-4. Bindings: keep `all-rules-all-pods`; add `examples/kubescape-operator/runtime-rule-binding.yaml` for system namespaces.
+4. Bindings: keep `all-rules-all-pods`. A binding cannot reach a namespace in `excludeNamespaces` (node-agent never traces it). To narrow a noisy namespace (CI runners) to signature rules, apply `examples/kubescape-operator/runtime-rule-binding.yaml` together with the HelmRelease `postRenderers` patch that removes that namespace from the default binding.
 5. Alerts: logs, Alertmanager, syslog or HTTP exporter values.
 6. Prove it: after `completed`, `kubectl exec` into a test pod and show the R2000/R0001 alert in `kubectl -n kubescape logs ds/node-agent`.
 

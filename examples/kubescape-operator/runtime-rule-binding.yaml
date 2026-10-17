@@ -1,18 +1,28 @@
-# alertCRD.installDefault: true already binds all 28 default rules to every
-# namespace not in excludeNamespaces (binding "all-rules-all-pods"). This binding
-# covers what that skips: system namespaces, with only the high-signal rules.
-# Anomaly rules (R0001–R0011) are left out here on purpose — system pods change
-# behaviour on every node or CNI upgrade and would page on noise.
+# Narrow runtime detection for a noisy namespace instead of muting it.
+#
+# CI runner pods start new processes, open new files and call new hosts on
+# every build, so the anomaly rules (R0001–R0011, compared with a learned
+# profile) would alert all day. The signature rules below still mean an
+# attack: a known-malicious binary, a crypto miner, a kernel module load, a
+# container escape.
+#
+# This only works together with two settings in flux/helmrelease.yaml:
+#   - ci-runners is NOT in excludeNamespaces: node-agent never traces pods in
+#     excluded namespaces (node-agent v0.3.219, Config.SkipNamespace), so a
+#     binding for an excluded namespace can never fire;
+#   - a postRenderers patch adds ci-runners to the NotIn list of the chart's
+#     default all-rules-all-pods binding, so the anomaly rules stop there and
+#     only this binding applies.
 apiVersion: kubescape.io/v1
 kind: RuntimeRuleAlertBinding
 metadata:
-  name: system-namespaces-high-signal   # cluster-scoped
+  name: ci-runners-signature-rules   # cluster-scoped
 spec:
   namespaceSelector:
     matchExpressions:
       - key: kubernetes.io/metadata.name
         operator: In
-        values: ["kube-system"]
+        values: ["ci-runners"]
   rules:
     - ruleTags: ["malicious"]   # R1000, R1001, R1003, R1005, R1007, R1008, R1009, R1011, R1012, R1015
     - ruleID: "R1002"           # Process tries to load a kernel module

@@ -130,6 +130,47 @@ for m in kubescape_controls_total_cluster_critical kubescape_controls_total_clus
   if grep -q "$m" "$DIR/prometheusrule.yaml" 2>/dev/null; then pass "prometheusrule.yaml uses $m"; else fail "prometheusrule.yaml should alert on $m"; fi
 done
 
+# node-agent v0.3.219 (Config.SkipNamespace) never traces pods in
+# excludeNamespaces, so a binding for an excluded namespace can never fire.
+# A namespace given its own binding must also be taken out of the chart's
+# all-rules-all-pods binding (a post-renderer patch), or both bindings apply.
+if python3 -I - "$DIR/runtime-rule-binding.yaml" "$DIR/flux/helmrelease.yaml" <<'PY'
+import sys, yaml
+binding = yaml.safe_load(open(sys.argv[1])); hr = yaml.safe_load(open(sys.argv[2]))
+vals = hr["spec"].get("values", {})
+excluded = {n.strip() for n in str(vals.get("excludeNamespaces", "")).split(",") if n.strip()}
+included = {n.strip() for n in str(vals.get("includeNamespaces", "")).split(",") if n.strip()}
+sel = binding["spec"].get("namespaceSelector", {})
+targets = set()
+for e in sel.get("matchExpressions", []):
+    if e.get("key") == "kubernetes.io/metadata.name" and e.get("operator") == "In":
+        targets |= set(e.get("values", []))
+targets |= {v for k, v in (sel.get("matchLabels") or {}).items() if k == "kubernetes.io/metadata.name"}
+errors = []
+if not targets: errors.append("binding must select namespaces by kubernetes.io/metadata.name so this check can verify them")
+for ns in sorted(targets):
+    if ns in excluded: errors.append(f"{ns} is in excludeNamespaces: node-agent never traces it, the binding cannot fire")
+    if included and ns not in included: errors.append(f"{ns} is not in includeNamespaces: node-agent never traces it")
+patched = set()
+for pr in hr["spec"].get("postRenderers", []) or []:
+    for p in (pr.get("kustomize") or {}).get("patches", []) or []:
+        t = p.get("target", {})
+        if t.get("kind") == "RuntimeRuleAlertBinding" and t.get("name") == "all-rules-all-pods":
+            for op in yaml.safe_load(p.get("patch", "[]")) or []:
+                if op.get("op") == "add" and str(op.get("path", "")).endswith("/values/-"):
+                    patched.add(op.get("value"))
+for ns in sorted(targets - patched):
+    errors.append(f"{ns} is still covered by all-rules-all-pods; add a postRenderers patch that adds it to that binding's NotIn list")
+if included: errors.append("this example's post-renderer patch assumes excludeNamespaces (the default binding uses NotIn); with includeNamespaces it uses In")
+for e in errors: print("    -", e)
+sys.exit(1 if errors else 0)
+PY
+then
+  pass "runtime binding targets traced namespaces, removed from the default binding"
+else
+  fail "runtime binding would never fire or would double up with all-rules-all-pods (see above)"
+fi
+
 # prometheus-exporter v0.2.23 registers the cluster gauges in init(): a running
 # exporter always serves them (0, or the last value), so absent() only means
 # "exporter not scraped". It must not be sold as scan-failure detection.

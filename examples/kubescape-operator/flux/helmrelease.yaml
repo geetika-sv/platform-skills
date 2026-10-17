@@ -28,6 +28,20 @@ spec:
     remediation:
       retries: 3
       remediateLastFailure: true
+  postRenderers:
+    # Take ci-runners out of the chart's default all-rules-all-pods binding;
+    # ../runtime-rule-binding.yaml gives it the signature rules only. The default
+    # binding selects with NotIn <excludeNamespaces> when includeNamespaces is
+    # empty, so this appends to that list.
+    - kustomize:
+        patches:
+          - target:
+              kind: RuntimeRuleAlertBinding
+              name: all-rules-all-pods
+            patch: |
+              - op: add
+                path: /spec/namespaceSelector/matchExpressions/0/values/-
+                value: ci-runners
   values:
     clusterName: prod-eu-west-1   # shown in every report and metric; the default "cluster" makes clusters indistinguishable
     ksNamespace: kubescape
