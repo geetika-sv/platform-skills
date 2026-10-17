@@ -26,6 +26,10 @@ What do you need?
   4. debug    — diagnose why a policy is not behaving as expected
   5. migrate  — convert a legacy ClusterPolicy or PodSecurityPolicy
 
+  Score a cluster or manifests against NSA/CIS/SOC2 before choosing policies → /platform-skills:kubescape
+  No Kyverno and none planned (Kubernetes ≥ 1.30): Kubescape's ready-made CEL
+  ValidatingAdmissionPolicies → /platform-skills:kubescape vap
+
 Enter 1–5 or mode name:
 ```
 

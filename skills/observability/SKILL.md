@@ -88,6 +88,8 @@ Alert design rules:
 
 Reference: `references/observability.md` → Alerting Rules
 
+Security posture and CVE alerts from Kubescape's exporter (`kubescape_controls_total_*`, `kubescape_vulnerabilities_*`; failing scans show only in the scanner's logs, not in these metrics) → `/platform-skills:kubescape-operator metrics`.
+
 → **Next:** Run `/platform-skills:observability slo` to promote these symptom alerts to proper SLO burn-rate alerts backed by an error budget.
 
 ## Mode: loadtest

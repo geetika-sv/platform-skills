@@ -229,6 +229,10 @@ Map each finding to a SOC 2 control area:
 - EBS volume with `encrypted = false`
 - Secret stored in a ConfigMap instead of a Secret resource or external secrets backend
 
+**CC6.8 — Vulnerability management**
+- Kubernetes manifests or a Helm chart in the diff: when `kubescape` is installed, scan the base branch from a `git worktree` and the head with `--baseline`, and report only the new failed controls (`kubescape scan framework nsa <path> --honor-inline-exceptions=false --baseline base.json`, the same flag on the base scan; recipe in `references/kubescape.md`). Without it, review statically and recommend the gate (`/platform-skills:kubescape ci`)
+- New or changed image references → `/platform-skills:trivy`
+
 **CC7.2 — Audit logging**
 - CloudTrail trail disabled or logging bucket changed
 - S3 bucket access logging removed

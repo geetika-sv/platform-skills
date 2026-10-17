@@ -134,6 +134,8 @@ REQUIRED_REFERENCES=(
   references/progressive-delivery.md
   references/backup-dr.md
   references/finops.md
+  references/kubescape.md
+  references/kubescape-operator.md
 )
 
 for ref in "${REQUIRED_REFERENCES[@]}"; do
@@ -177,10 +179,13 @@ EXAMPLE_DOMAINS=(
   examples/dora
   examples/datadog/llm-observability
   examples/awesome-docs
+  examples/kubescape
+  examples/kubescape-operator
 )
 
 for domain in "${EXAMPLE_DOMAINS[@]}"; do
-  ASSET_COUNT=$(find "$domain" -type f ! -name "README.md" 2>/dev/null | wc -l | tr -d ' ')
+  # || true: under pipefail a missing directory would abort the script instead of reporting FAIL
+  ASSET_COUNT=$( (find "$domain" -type f ! -name "README.md" 2>/dev/null || true) | wc -l | tr -d ' ')
   if [ "$ASSET_COUNT" -gt 0 ]; then
     pass "$domain has $ASSET_COUNT asset(s)"
   else
@@ -328,6 +333,8 @@ VALIDATE_SCRIPTS=(
   "examples/gateway-api/gateway-api-validate.sh"
   "examples/backup-dr/backup-dr-validate.sh"
   "examples/finops/finops-validate.sh"
+  "examples/kubescape/kubescape-validate.sh"
+  "examples/kubescape-operator/kubescape-operator-validate.sh"
 )
 
 for script in "${VALIDATE_SCRIPTS[@]}"; do

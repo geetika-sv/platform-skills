@@ -318,6 +318,7 @@ jobs:
               -path "./examples/backup-dr/*" -o \
               -path "./examples/finops/kubernetes/*" -o \
               -path "./examples/finops/opencost/*" -o \
+              -path "./examples/kubescape-operator/flux/*" -o \
               -path "./examples/argocd/*" -o \
               -path "./examples/kubernetes/*" -o \
               -path "./examples/openshift/*" \

@@ -125,6 +125,8 @@ Slash commands are predefined Claude workflows. In Codex or Cursor, ask for the 
 | `/platform-skills:progressive-delivery` | Add Flagger canaries with metric-gated promotion and automatic rollback, or debug a canary that will not promote |
 | `/platform-skills:backup-dr` | Install Velero, design schedules, run a timed restore drill, restore a namespace, or plan DR to another cluster |
 | `/platform-skills:finops` | Estimate a Terraform PR's cost, allocate in-cluster cost with OpenCost, or enforce cost-allocation tags |
+| `/platform-skills:kubescape` | Score manifests, charts or a cluster against NSA, MITRE, CIS or SOC2, gate PRs on new findings, write exceptions, preview fixes, or roll out admission policies |
+| `/platform-skills:kubescape-operator` | Install the Kubescape operator, rank CVEs by relevancy, alert on runtime behaviour, turn generated NetworkPolicies into Git changes, or debug the operator |
 | `/platform-skills:setup-agents` | Scaffold multi-agent AI setup — generate, upgrade, add, review |
 | `/platform-skills:self-improve` | Bootstrap `.learnings/` workspace, log errors/learnings, resume after interruption, review patterns, promote to project memory |
 | `/platform-skills:supply-chain` | Sign images, generate SBOMs, run CVE gates, enforce image signatures, generate SLSA provenance |

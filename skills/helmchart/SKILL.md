@@ -382,6 +382,16 @@ LOW:      <count>
 
 ## Mode: security
 
+If `kubescape` is installed, run it on the rendered chart first and use the tables below to explain and fix what it reports. It tries to build chart dependencies itself but only warns if that fails, then scans without the subcharts, so build them first and stop on errors:
+
+```bash
+helm repo add <name> <url>                           # each https:// repository in Chart.yaml dependencies
+helm dependency build <chart>/                       # only if Chart.yaml lists dependencies
+kubescape scan framework nsa <chart>/ --kube-version <target-k8s-version> -v
+```
+
+Each failed control maps to a row below (C-0013 non-root, C-0016 privilege escalation, C-0017 read-only root filesystem, C-0055 seccomp and capabilities, C-0057 privileged, C-0270/C-0271 limits). A score of 100 says nothing about image CVEs (`/platform-skills:trivy`). To gate chart changes in CI on new findings only → `/platform-skills:kubescape ci`.
+
 Audit using these tables:
 
 ### Pod Security

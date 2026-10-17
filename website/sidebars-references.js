@@ -129,6 +129,8 @@ const sidebars = {
         { type: 'doc', id: 'awesome-docs' },
         { type: 'doc', id: 'mcp' },
         { type: 'doc', id: 'finops' },
+        { type: 'doc', id: 'kubescape' },
+        { type: 'doc', id: 'kubescape-operator' },
       ],
     },
     {
