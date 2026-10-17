@@ -169,7 +169,14 @@ docs/specs/2026-05-30-viral-adoption-design.md
 .superpowers/*
 awesome-agent-skills/*
 
+# ===== Python =====
+__pycache__/
+*.py[cod]
+
 # ===== Docusaurus =====
 website/node_modules/
 website/build/
 website/.docusaurus/
+# claude plugin eval run output
+plugin-evals/results/
+website/.generated/

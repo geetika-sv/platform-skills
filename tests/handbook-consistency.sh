@@ -56,9 +56,9 @@ declare -a REQUIRED_PATHS=(
   "examples/github-actions/composite-actions/setup-terraform/action.yml"
   "examples/github-actions/composite-actions/configure-cloud/action.yml"
   "examples/triage/README.md"
-  "commands/triage.md"
+  "skills/triage/SKILL.md"
   "examples/agent-self-improve/README.md"
-  "commands/self-improve.md"
+  "skills/self-improve/SKILL.md"
   "references/agent-self-improve.md"
   "examples/aws/README.md"
   "examples/azure/README.md"
@@ -108,5 +108,26 @@ bash tests/checkov-script.sh
 
 echo "Running trivy script tests..."
 bash tests/trivy-script.sh
+
+echo "Running ai-governance evaluator tests..."
+bash examples/ai-governance/tests/evaluate_test.sh
+
+echo "Running token-optimizer script tests..."
+bash tests/token-optimizer-script.sh
+
+echo "Running triage script tests..."
+bash tests/triage-script.sh
+
+echo "Running token-optimizer policy core tests..."
+bash examples/token-optimizer/tests/optimize_test.sh
+
+echo "Running self-improve hook tests..."
+bash examples/agent-self-improve/tests/self_improve_hook_test.sh
+
+echo "Running self-improve learnings tests..."
+bash examples/agent-self-improve/tests/learnings_test.sh
+
+echo "Running website coverage checks..."
+bash tests/website-coverage.sh
 
 echo "✅ Handbook consistency checks passed"

@@ -2,24 +2,39 @@
 
 A simple GitOps repository structure using Kustomize overlays for environment differences.
 
+Traffic enters through [Gateway API](https://gateway-api.sigs.k8s.io/) on [Envoy Gateway](https://gateway.envoyproxy.io/). This example used ingress-nginx until v1.43.0. That project's best-effort maintenance ended in March 2026, with no further releases or security fixes. To migrate an existing cluster, use `/platform-skills:gateway-api`.
+
+## Prerequisites
+
+- Flux v2.9 or later (`OCIRepository` v1, `HelmRelease` `chartRef`, `healthCheckExprs`)
+- A LoadBalancer implementation (EKS, AKS and GKE have one; on kind or bare metal install MetalLB). Without it the Gateway never becomes `Programmed` and `infrastructure-configs` times out
+
 ## Structure
 
 ```
 basic-monorepo/
 ├── clusters/
 │   ├── production/
-│   │   ├── flux-system/           # Flux bootstrap
-│   │   ├── infrastructure.yaml    # Infrastructure Kustomization
-│   │   └── apps.yaml              # Apps Kustomization
+│   │   ├── flux-system/                 # Flux bootstrap
+│   │   ├── gateway-crds.yaml            # Gateway API + Envoy Gateway CRDs (never pruned)
+│   │   ├── infrastructure.yaml          # Controllers: Envoy Gateway, cert-manager
+│   │   ├── infrastructure-configs.yaml  # Gateway, GatewayClass, ClusterIssuer
+│   │   └── apps.yaml                    # Apps Kustomization
 │   └── staging/
 │       ├── flux-system/
+│       ├── gateway-crds.yaml
 │       ├── infrastructure.yaml
+│       ├── infrastructure-configs.yaml
 │       └── apps.yaml
 ├── infrastructure/
-│   ├── base/                      # Shared infrastructure
+│   ├── base/                      # Shared controllers (CRDs come from clusters/<env>/gateway-crds.yaml)
 │   │   ├── kustomization.yaml
-│   │   ├── ingress-nginx/
+│   │   ├── envoy-gateway/
 │   │   └── cert-manager/
+│   ├── configs/                   # Objects that need those CRDs
+│   │   ├── base/                  # App namespaces, GatewayClass, EnvoyProxy, Gateway, redirect, ClusterIssuer
+│   │   ├── production/            # Production hostnames
+│   │   └── staging/               # Staging hostnames, single proxy
 │   ├── production/                # Production overrides
 │   │   └── kustomization.yaml
 │   └── staging/                   # Staging overrides
@@ -91,7 +106,11 @@ spec:
 
 ### Layer Dependencies
 
-Apps depend on infrastructure:
+The layers reconcile in order: `gateway-api-crds` and `envoy-gateway-crds` apply the CRDs. `infrastructure` installs the controllers (Envoy Gateway, cert-manager; cert-manager must start after the Gateway API CRDs exist). `infrastructure-configs` creates the app namespaces and the Gateway API and cert-manager objects that need those CRDs. `apps` attaches routes to the Gateway.
+
+Splitting controllers from configs is required, not cosmetic. Flux dry-runs a Kustomization before applying it, and a `Gateway` cannot be dry-run until the Gateway API CRDs exist.
+
+Apps depend on the configs layer:
 
 ```yaml
 # clusters/production/apps.yaml
@@ -102,7 +121,7 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn:
-    - name: infrastructure
+    - name: infrastructure-configs
   interval: 5m
   path: ./apps/production
   prune: true
@@ -123,11 +142,11 @@ resources:
   - ../base
 patches:
   - target:
-      kind: Deployment
-      name: ingress-nginx-controller
+      kind: HelmRelease
+      name: envoy-gateway
     patch: |-
       - op: replace
-        path: /spec/replicas
+        path: /spec/values/deployment/replicas
         value: 1  # Staging uses fewer replicas
 ```
 
@@ -141,13 +160,30 @@ resources:
   - ../base
 patches:
   - target:
-      kind: Deployment
-      name: ingress-nginx-controller
+      kind: HelmRelease
+      name: cert-manager
     patch: |-
       - op: replace
-        path: /spec/replicas
+        path: /spec/values/replicaCount
         value: 3  # Production uses more replicas
 ```
+
+### Ingress with Gateway API
+
+Ownership is split the way Gateway API intends:
+
+| Object | Owner | Namespace |
+|---|---|---|
+| `GatewayClass` `envoy-gateway`, `EnvoyProxy` `platform-proxy` | Platform team | cluster / `envoy-gateway-system` |
+| `Gateway` `platform-gateway`, listeners, TLS certificates | Platform team | `envoy-gateway-system` |
+| `HTTPRoute` per app | App team | the app's namespace |
+
+- **TLS:** the Gateway carries `cert-manager.io/cluster-issuer: letsencrypt-prod`. cert-manager creates one Certificate per HTTPS listener and solves HTTP-01 through the same Gateway.
+- **Access:** each HTTPS listener accepts routes only from the namespace that owns its hostname, selected by `kubernetes.io/metadata.name` (set by the API server, immutable). A route from any other namespace is rejected with `NotAllowedByListeners`, so one team cannot claim paths on another team's hostname. App namespaces are created in `infrastructure/configs/base/app-namespaces.yaml`, not under `apps/`. Protect both files with CODEOWNERS.
+- **Redirect:** a platform-owned `HTTPRoute` on port 80 sends everything to HTTPS with a 308, the same code ingress-nginx used. ACME challenge routes use an `Exact` path match, which takes precedence over it.
+- **CRDs:** `clusters/<env>/gateway-crds.yaml` applies the Gateway API **standard**-channel CRDs and the Envoy Gateway CRDs as plain manifests through two Flux Kustomizations. Not a HelmRelease: the CRDs are multi-megabyte and a Helm release Secret is capped at 1 MiB. Both use `prune: false` and `deletionPolicy: Orphan`, because deleting a CRD deletes every Gateway and HTTPRoute in the cluster.
+- **Availability:** `EnvoyProxy` runs two proxy replicas with a PodDisruptionBudget in production. Staging runs one and removes the PDB, because `minAvailable: 1` on a single replica blocks every node drain.
+
 
 ## Key Patterns
 
@@ -182,6 +218,8 @@ spec:
 Keep environment differences small. Most configuration should be in base.
 
 ## Adding New Applications
+
+A new app needs a platform-team change first: add its Namespace to `infrastructure/configs/base/app-namespaces.yaml`. A new **public hostname** also needs an HTTPS listener in `infrastructure/configs/base/gateway.yaml` whose `allowedRoutes` selects that namespace by `kubernetes.io/metadata.name`, patched per environment; cert-manager requires one listener per hostname.
 
 1. **Create base definition:**
 
@@ -271,10 +309,30 @@ flux logs --kind=kustomize-controller --since=10m
 flux reconcile kustomization apps --with-source
 ```
 
+### Route Not Serving Traffic
+
+```bash
+# Is the Gateway Programmed (has an address)?
+kubectl get gateway platform-gateway -n envoy-gateway-system
+# Did the route attach? Look for Accepted=True and ResolvedRefs=True per parent
+kubectl get httproute my-app -n my-app -o jsonpath='{range .status.parents[*]}{.parentRef.sectionName}{": "}{range .conditions[*]}{.type}={.status} ({.reason}) {end}{"\n"}{end}'
+# Was the certificate issued?
+kubectl get certificate -n envoy-gateway-system
+```
+
+| Condition | Meaning | Fix |
+|---|---|---|
+| `Accepted=False`, `NotAllowedByListeners` | The route's namespace is not the one the listener names, or the `sectionName` is wrong | Attach from the owning namespace, or fix `sectionName` |
+| `ResolvedRefs=False`, `BackendNotFound` | Service name or port in `backendRefs` is wrong | Match the Service name and port number |
+| Gateway `Programmed=False`, `AddressNotAssigned` | No LoadBalancer implementation | Install one, or use a NodePort `EnvoyProxy` for local clusters |
+| No Certificate | cert-manager started before the Gateway API CRDs existed | `kubectl rollout restart deployment cert-manager -n cert-manager` |
+
 ### Validate Locally
 
 ```bash
-kustomize build apps/production
+kubectl kustomize apps/production
+# Full check: every overlay builds and passes kubeconform against CRD schemas
+bash examples/gateway-api/gateway-api-validate.sh
 ```
 
 ## Advantages

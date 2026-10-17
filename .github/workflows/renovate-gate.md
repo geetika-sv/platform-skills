@@ -1,0 +1,192 @@
+---
+name: Renovate Gate
+description: Reviews Renovate PRs in a pre-approved low-risk subset, verifies CI and changelogs, and approves+merges when safe
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  bots: ["renovate[bot]"]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Renovate PR number to (re-)evaluate manually"
+        type: number
+        required: true
+# `bots:` above is an allowlist that lets renovate[bot] past the bot-author check
+# in pre_activation. It does NOT restrict the workflow to Renovate — a human PR
+# from anyone with write access still satisfies the role check and starts the
+# agent, burning a Copilot request to reach Step 1 and noop. Gate on the author
+# instead, before activation.
+#
+# 29139614 is renovate[bot] (`gh api users/renovate%5Bbot%5D`). Matching on the
+# immutable id rather than the login means a renamed or impersonated account
+# cannot satisfy it. workflow_dispatch has no pull_request payload, so it is
+# allowed through explicitly and Step 1 re-verifies the author for that path.
+if: >-
+  github.event_name == 'workflow_dispatch' ||
+  github.event.pull_request.user.id == 29139614
+concurrency:
+  group: renovate-gate-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: false
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  checks: read
+  copilot-requests: write
+engine: copilot
+tools:
+  github:
+    mode: gh-proxy
+    toolsets: [default, pull_requests]
+  bash:
+    - grep
+    - rg
+    - find
+    - cat
+    - "terraform fmt -check -recursive"
+    - "terraform init -backend=false"
+    - "terraform validate"
+    - "go build ./..."
+    - "go vet ./..."
+    - "npm ci --ignore-scripts"
+    - "npm run build --if-present"
+    - "npm test --if-present"
+    - "python -m py_compile"
+    - "actionlint"
+network:
+  allowed:
+    - defaults
+    - terraform
+    - go
+    - node
+    - python
+pre-steps:
+  - name: Install actionlint
+    run: |
+      set -euo pipefail
+      curl -f -sLo /tmp/actionlint.tar.gz --max-time 120 --retry 3 https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+      echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  /tmp/actionlint.tar.gz" | sha256sum -c -
+      tar xz -C /tmp -f /tmp/actionlint.tar.gz actionlint
+      sudo mv /tmp/actionlint /usr/local/bin/
+  - name: Install Terraform
+    # Reference the tag here, not the SHA. gh-aw resolves it and writes the SHA
+    # pin into renovate-gate.lock.yml plus .github/aw/actions-lock.json, so what
+    # runs is still immutable. Hand-pinning the SHA here makes the compiler emit
+    # `@<sha> # <sha>` in the lock — a version comment that does not name a
+    # version — which zizmor reports as ref-version-mismatch.
+    uses: hashicorp/setup-terraform@v4.0.1
+    with:
+      terraform_version: 1.15.8
+      terraform_wrapper: false
+safe-outputs:
+  submit-pull-request-review:
+    allowed-events: [APPROVE, COMMENT]
+    target: "*"
+  merge-pull-request:
+    allowed-branches: ["renovate/**"]
+    required-labels: [renovate]
+    target: "*"
+    max: 1
+  push-to-pull-request-branch:
+    target: "*"
+    required-labels: [renovate]
+    allowed-files:
+      - "**/*.tf"
+      - "**/*.tfvars"
+      - "**/values*.yaml"
+      - "**/Chart.yaml"
+      - "go.mod"
+      - "**/go.mod"
+      - "go.sum"
+      - "**/go.sum"
+      - "package.json"
+      - "**/package.json"
+      - "package-lock.json"
+      - "**/package-lock.json"
+      - "requirements*.txt"
+      - "**/requirements*.txt"
+      - "Pipfile"
+      - "**/Pipfile"
+      - "Pipfile.lock"
+      - "**/Pipfile.lock"
+      - "pyproject.toml"
+      - "**/pyproject.toml"
+      - "poetry.lock"
+      - "**/poetry.lock"
+      - "**/*.py"
+      - "**/*.go"
+      - "examples/github-actions/**/*.yml"
+    protected-files: allowed
+---
+
+# Renovate Gate
+
+You review pull requests opened by `renovate[bot]` against a pre-approved, low-risk subset of dependency updates, and approve+merge only the ones that are genuinely safe.
+
+## Step 1 — Resolve the target PR and re-verify scope
+
+- If this run was triggered by `workflow_dispatch`, the target PR number is `${{ inputs.pr_number }}`. Otherwise it is the triggering pull request.
+- Confirm the PR author is `renovate[bot]`. If not, call `noop` with that reason and stop. On the `pull_request` path the frontmatter `if:` has already guaranteed this, so the check is redundant there and you should pass it immediately; on the `workflow_dispatch` path it is the only author check, because `pr_number` is whatever the operator typed.
+
+### Deny-list — apply this BEFORE matching any category
+
+Call `noop` and stop if the PR touches any of the following, regardless of update type. These are permanently human-reviewed. Check this first: the categories below are partly defined by exclusion, so without this gate a forbidden change could satisfy the catch-all category.
+
+- a Terraform **module** source or version — a `module` block, a `source =` line, or a module version constraint. (A `required_providers` provider entry is *not* a module and *is* in scope.)
+- a **container image** reference or tag, under any manager (`kubernetes`, `docker-compose`, `dockerfile`) — including an image tag bumped inside a Helm `values*.yaml`, which would otherwise satisfy the Helm category on file-glob grounds alone.
+- a **major**-version bump of anything that is not a GitHub Action.
+
+### Categories
+
+Only if the deny-list passes: read the PR's changed files and title, and confirm it matches exactly one of these pre-approved categories:
+  - **GitHub Actions**: changed files are `.github/workflows/*.yml`/`.yaml` or `**/action.yml`, and the PR is a version bump of one or more GitHub Actions (any update type, including major).
+  - **Terraform providers**: changed files are `*.tf` `required_providers` version constraints, update type minor or patch.
+  - **Helm patch**: changed files are `Chart.yaml`/`values*.yaml`, update type patch.
+  - **Go modules**: changed files are `go.mod`/`go.sum`, update type minor or patch.
+  - **npm packages**: changed files are `package.json`/`package-lock.json`, update type minor or patch.
+  - **Python packages**: changed files are `requirements*.txt`/`Pipfile`/`pyproject.toml`/`poetry.lock`, update type minor or patch.
+  - **Generic stable patch**: any other dependency, update type patch, current version not `0.x`.
+- If the PR doesn't clearly match exactly one of these, call `noop` explaining which category it's closest to and why it doesn't qualify. Do not guess.
+
+## Step 2 — Check CI status
+
+- Read all status checks on the PR's head commit.
+- **Ignore this workflow's own check runs when assessing status.** They belong to the run you are executing inside, so some of them are always in progress or queued while you evaluate this step — counting them would make this check impossible to pass. Exclude check runs named: `pre_activation`, `activation`, `agent`, `detection`, `safe_outputs`, `conclusion`, and anything else belonging to the `Renovate Gate` workflow.
+- Of the remaining checks: if any is failing, call `noop` naming the check and its conclusion. Do not approve or merge on a red PR.
+- If any remaining check is still pending or in progress, call `noop` naming it. Do not wait, poll, or retry — a later run (a new commit, or a manual `workflow_dispatch` once CI has finished) will re-evaluate.
+- If there are no remaining checks at all after the exclusion, treat that as "CI has not reported" and `noop` rather than assuming success.
+
+## Step 3 — Read the embedded release notes
+
+- Renovate embeds release notes per-dependency in the PR body under collapsible `<details>` sections. Read all of them for every dependency this PR touches.
+- Look for signals that contradict the matched category's safety assumption: the literal word "BREAKING", removed or deprecated APIs, required migration steps, or a security advisory that itself requires code changes (not just the version bump).
+
+### Step 3a — Release notes are clean
+
+If none of those signals are present, proceed to Step 4.
+
+### Step 3b — A breaking-change signal is present
+
+Do not approve or merge in this run. Instead:
+
+1. Read the changelog's migration guidance in full.
+2. Search the repository for usages of the changed API, argument, or interface — scoped to files this PR already touches or directly adjacent call sites. Do not search the whole repository speculatively.
+3. Decide whether the fix is a bounded, mechanical adaptation confined to a small, identifiable set of files (for example: a renamed Terraform argument, a changed Helm values key, an updated function signature, a renamed GitHub Actions input).
+   - **If yes**: Files under `.github/workflows/` cannot be written by this workflow (no `push-to-pull-request-branch` capability for that path), so if the fix would require editing a workflow file, stop here and take the "out of scope" comment-only path below instead. Otherwise, make the edit locally, then verify it with the one matching command from your bash allowlist for the affected ecosystem (`terraform validate` for Terraform, `go build ./...` for Go, `npm run build --if-present` / `npm test --if-present` for npm, `python -m py_compile` for Python, `actionlint` for GitHub Actions workflow/action YAML).
+     - **If verification passes**: call `push-to-pull-request-branch` with the fix as a new commit on the same PR branch. Then call `submit-pull-request-review` with event `COMMENT` (never `APPROVE`) whose body states: what broke, what you changed to adapt it, and that it needs human re-review once CI re-runs against the new commit. Do not call `merge-pull-request` on this path, under any circumstance, even if CI was green before your push. Stop.
+     - **If verification fails**: discard the edit. Do not push anything. Go to the "out of scope" branch below.
+   - **If no** (spans unrelated files, ambiguous migration, or you're not confident): make no code changes ("out of scope"). Call `submit-pull-request-review` with event `COMMENT` whose body is the changelog's breaking-change/migration summary, so a human has full context. Stop.
+
+## Step 4 — Approve and merge (only reachable from Step 3a)
+
+- Call `submit-pull-request-review` with event `APPROVE`. The review body must state, concretely:
+  1. which pre-approved category matched (from Step 1),
+  2. that all CI checks are green (from Step 2),
+  3. a one-line summary confirming the release notes show no breaking changes (from Step 3).
+- Then call `merge-pull-request` for this PR, passing `merge_method: squash` explicitly. The tool schema documents `merge` as the default, so `squash` must be passed explicitly to keep dependency-bump history linear.
+- If this is a `workflow_dispatch` run, pass the resolved PR number explicitly to both calls.
+
+## Always
+
+- Never call `merge-pull-request` in the same run as `push-to-pull-request-branch`.
+- If you cannot complete evaluation for any reason not covered above (missing data, tool error), use `missing-data`/`report-incomplete` rather than guessing.

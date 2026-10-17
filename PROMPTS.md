@@ -78,6 +78,10 @@ Use $platform-skills to harden this GitHub Actions workflow. Check permissions, 
 Generate a GitHub Actions pipeline for Terraform with fmt, validate, tflint, checkov, plan, approval gates, and least-privilege OIDC.
 ```
 
+```text
+/platform-skills:zizmor audit every workflow in this repo. Show me template injection, credential persistence, unpinned uses, and over-broad permissions, ranked by severity.
+```
+
 ## AWS, Azure, And Cloud
 
 ```text
@@ -107,6 +111,18 @@ Review this supply chain pipeline for Cosign signing, SBOM generation, provenanc
 ```
 
 ```text
+/platform-skills:zizmor add a workflow security gate to CI. Block on medium and high findings, upload SARIF to the Security tab, and generate a .github/zizmor.yml policy that hash-pins every third-party action.
+```
+
+```text
+/platform-skills:kingfisher scan this repo's Git history for leaked secrets. Tell me which findings are confirmed live vs. just candidates, and set up a baseline so future PRs only fail on new ones.
+```
+
+```text
+/platform-skills:ai-governance our AI agents keep editing workflow files and IAM policies. Scaffold a policy gate: Copilot and Claude Code session hooks that deny those paths, plus a merge-time check as the backstop. Start in audit mode so we can see the false-positive rate before we block anything.
+```
+
+```text
 Review these Kyverno or OPA policies for audit-first rollout, false positive risk, test coverage, exception handling, and promotion to enforcement.
 ```
 
@@ -122,6 +138,16 @@ We have an incident. Build a troubleshooting plan with symptom, evidence, hypoth
 
 ```text
 Review these alerts for actionability, ownership, severity, burn-rate signal, noise risk, and runbook links.
+```
+
+## Gateway API And Ingress
+
+```text
+/platform-skills:gateway-api assess our ingress-nginx usage. List every annotation by namespace, classify what translates automatically, what needs a decision, and what blocks the migration.
+```
+
+```text
+/platform-skills:gateway-api plan the cutover for payments.example.com: shadow test against the new Gateway address, DNS TTL plan, soak criteria, and the rollback at each stage.
 ```
 
 ## KEDA And Autoscaling

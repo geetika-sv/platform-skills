@@ -13,16 +13,19 @@ on:
 #   act -W .github/workflows/test-action.yml \
 #       -P ubuntu-latest=catthehacker/ubuntu:act-22.04
 
+# Workflow level grants only what every job needs. id-token: write is granted
+# per job, on the one job that actually performs the OIDC exchange — a workflow
+# level grant would hand a signed identity token to every other job too, and any
+# third-party step in those jobs could trade it for cloud credentials.
 permissions:
   contents: read
-  id-token: write   # required for OIDC credential exchange
 
 jobs:
   # Test 1 — invalid provider fails
   test-invalid-provider:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Run with invalid provider — expect failure
         id: cloud
         uses: ./
@@ -39,7 +42,7 @@ jobs:
   test-missing-aws-role:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Run AWS without role_arn — expect failure
         id: cloud
         uses: ./
@@ -56,7 +59,7 @@ jobs:
   test-missing-azure-client-id:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Run Azure without client_id — expect failure
         id: cloud
         uses: ./
@@ -75,7 +78,7 @@ jobs:
   test-missing-azure-tenant:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Run Azure without tenant_id — expect failure
         id: cloud
         uses: ./
@@ -94,7 +97,7 @@ jobs:
   test-gke-missing-provider:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Run GKE without workload_identity_provider — expect failure
         id: cloud
         uses: ./
@@ -115,7 +118,7 @@ jobs:
   test-gke-missing-service-account:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Run GKE without service_account — expect failure
         id: cloud
         uses: ./
@@ -135,8 +138,11 @@ jobs:
   # Test 7 — GKE/WIF inputs pass validation; action fails at OIDC step (expected in CI)
   test-gke-input-validation-passes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # this job reaches the OIDC credential exchange
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: All GKE inputs valid — will fail at OIDC step without real WIF trust
         id: cloud
         uses: ./

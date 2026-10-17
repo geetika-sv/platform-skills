@@ -5,10 +5,12 @@ on:
     tags:
       - 'v*.*.*'
 
-permissions:
-  contents: write
-  pull-requests: read
-  id-token: write
+# Deny by default; each job grants only what it needs. contents: write at the
+# workflow level handed a repo-write token to every job, including the ones that
+# install third-party tooling (yq, kubeconform, terraform providers) — only
+# create-release actually needs it. pull-requests: read and id-token: write were
+# granted but unused by any step, so they are gone.
+permissions: {}
 
 env:
   SKILL_NAME: platform-skills
@@ -17,12 +19,14 @@ jobs:
   validate:
     name: Validate Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read        # checkout and read-only repo inspection
     outputs:
       version: ${{ steps.version.outputs.version }}
       changelog_exists: ${{ steps.check.outputs.changelog_exists }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
 
@@ -35,7 +39,12 @@ jobs:
 
       - name: Ensure tagged commit is on main
         run: |
-          git fetch origin main --depth=1
+          # No --depth here. The checkout above uses fetch-depth: 0, so the
+          # repository is complete, but a shallow fetch of main grafts a new
+          # boundary at main's tip with no parent history — and then
+          # merge-base --is-ancestor has no path to walk unless the tag IS
+          # main's tip. That made every release from a non-tip commit fail.
+          git fetch origin main
           TAG_COMMIT=$(git rev-parse HEAD)
           MAIN_COMMIT=$(git rev-parse origin/main)
 
@@ -135,35 +144,20 @@ jobs:
           fi
 
       - name: Validate no secrets in code
-        run: |
-          # Check for common secret patterns
-          POTENTIAL_SECRETS=$(grep -rE '(password|secret|key|token|apikey).*=.*["\x27][^"\x27]{8,}["\x27]' \
-             --exclude-dir=.git \
-             --exclude-dir=node_modules \
-             --exclude-dir=examples \
-             --exclude="*.md" \
-             --exclude="CHANGELOG.md" \
-             --exclude="release.yml" . | \
-             grep -v 'matrix\.' | \
-             grep -v 'vars\.' | \
-             grep -v 'secrets\.' | \
-             grep -v 'backend-config=' || true)
-
-          if [ -n "$POTENTIAL_SECRETS" ]; then
-            echo "⚠️  Potential secrets found in code:"
-            echo "$POTENTIAL_SECRETS"
-            echo "Review above matches before release"
-            exit 1
-          fi
-          echo "✅ No obvious secrets detected"
+        # Shared with validate.yml via tests/scan-secrets.sh. This step used to be
+        # an inline copy that drifted out of step with the PR gate and blocked a
+        # release on two false positives.
+        run: bash tests/scan-secrets.sh
 
   quality-checks:
     name: Quality Checks
     runs-on: ubuntu-latest
     needs: validate
+    permissions:
+      contents: read        # checkout only; linters and terraform init run offline
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Check markdown files
         run: |
@@ -189,7 +183,7 @@ jobs:
           # Validate all YAML files
           YAML_FILES=$(find . -type f \( -name "*.yml" -o -name "*.yaml" \) \
             ! -path "./.git/*" \
-            ! -path "./examples/helm/*/templates/*")
+            ! -path "*/templates/*")
 
           if [ -n "$YAML_FILES" ]; then
             while IFS= read -r file; do
@@ -247,48 +241,34 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e  # v4.0.1
         with:
-          terraform_version: "1.15.7"
+          terraform_version: "v1.16.5"
 
       - name: Validate Terraform files (if present)
-        run: |
-          if find . -type f -name "*.tf" ! -path "./.git/*" ! -path "./examples/demo/*" | grep -q .; then
-            ERRORS=0
-            for dir in $(find . -type f -name "*.tf" ! -path "./.git/*" ! -path "./examples/demo/*" -exec dirname {} \; | sort -u); do
-              echo "Validating Terraform in: $dir"
-              if ! (cd "$dir" && terraform init -backend=false -input=false && terraform validate); then
-                echo "❌ Terraform validation failed in $dir"
-                ERRORS=$((ERRORS + 1))
-              fi
-            done
-
-            if [ $ERRORS -gt 0 ]; then
-              echo "❌ Found $ERRORS Terraform validation errors"
-              exit 1
-            fi
-
-            echo "✅ Terraform files validated"
-          else
-            echo "ℹ️  No Terraform files found"
-          fi
+        # Shared with validate.yml via tests/validate-terraform.sh, so the release
+        # gate runs exactly the checks the PR gate ran. Previously this copy was
+        # missing the fmt check that validate.yml performed.
+        run: bash tests/validate-terraform.sh
 
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     needs: [validate, quality-checks]
+    permissions:
+      contents: write       # gh release create publishes the release for the tag
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
 
-      - name: Validate marketplace.json source.sha is a recent ancestor of tagged commit
+      - name: Validate marketplace.json source.sha ships the tagged content
         run: |
           TAG_COMMIT=$(git rev-parse HEAD)
           STORED_SHA=$(jq -r '.plugins[0].source.sha' .claude-plugin/marketplace.json)
 
-          # Exact equality is impossible: the SHA-update PR merge always creates one
-          # new commit on top of the stored SHA. Check reachability instead — the stored
-          # SHA must be an ancestor of the tagged commit (i.e. it is reachable from it).
+          # source.sha, not the tag, selects the tree installers download. Exact
+          # equality is impossible — the sha-bump commit cannot contain its own hash —
+          # so the stored SHA must at least be reachable from the tagged commit.
           if ! git merge-base --is-ancestor "$STORED_SHA" "$TAG_COMMIT"; then
             echo "❌ marketplace.json source.sha is not reachable from the tagged commit"
             echo "  stored: ${STORED_SHA}"
@@ -298,13 +278,30 @@ jobs:
             exit 1
           fi
 
-          # Warn if the SHA is more than 1 commit behind — that suggests a stale update.
-          DISTANCE=$(git rev-list --count "${STORED_SHA}..${TAG_COMMIT}")
-          if [ "$DISTANCE" -gt 1 ]; then
-            echo "⚠️  source.sha is ${DISTANCE} commits behind the tag — consider updating it."
+          # Reachability alone is not enough: anything that differs between the stored
+          # SHA and the tag is content the release does not ship. A sha-bump commit can
+          # only ever touch marketplace.json, so every other path here is a leak.
+          #
+          # This replaces a "warn if more than 1 commit behind" heuristic that could not
+          # tell a metadata commit from a content commit. v1.38.0 sat exactly 1 commit
+          # behind and shipped the pre-azurerm-5 azure example, warning-free, because
+          # the fix commit repointed source.sha at its own parent.
+          EXCLUDED=$(git diff --name-only "$STORED_SHA" "$TAG_COMMIT" -- . ':(exclude).claude-plugin/marketplace.json')
+          if [ -n "$EXCLUDED" ]; then
+            echo "❌ source.sha excludes content that is present in the tag:"
+            while IFS= read -r excluded_path; do
+              echo "  ${excluded_path}"
+            done <<< "$EXCLUDED"
+            echo ""
+            echo "  stored: ${STORED_SHA}"
+            echo "  tagged: ${TAG_COMMIT}"
+            echo ""
+            echo "Land content first and merge it, then bump source.sha to that merge"
+            echo "commit in a PR that touches only .claude-plugin/marketplace.json, then tag."
+            exit 1
           fi
 
-          echo "✅ source.sha ${STORED_SHA} is reachable from tagged commit ${TAG_COMMIT}"
+          echo "✅ source.sha ${STORED_SHA} ships the tagged content"
 
       - name: Extract changelog for this version
         id: changelog
@@ -437,9 +434,11 @@ jobs:
     needs: [validate, quality-checks, create-release]
     # Only run on main repository (not forks)
     if: github.repository == 'nitinjain999/platform-skills'
+    permissions:
+      contents: read        # checkout only; publication is still a manual step
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Notify about marketplace publication
         run: |

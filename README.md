@@ -3,9 +3,9 @@
 > A production-grade field handbook for platform, DevOps, SRE, and cloud engineers covering Kubernetes, Flux CD, Terraform, GitHub Actions, AWS, OPA/Rego, KEDA, Karpenter, supply chain security, Falco, observability, and more. Use it on GitHub, as a local reference, or with Claude, Codex, Cursor, and Copilot for interactive guidance with blast radius, validation steps, and rollback plans built in.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-v1.37.0-0e1117)](CHANGELOG.md)
-[![Domains](https://img.shields.io/badge/Domains-40-4c8eda)](references/)
-[![Commands](https://img.shields.io/badge/Commands-40-e87c2b)](commands/)
+[![Version](https://img.shields.io/badge/Version-v1.43.0-0e1117)](CHANGELOG.md)
+[![Domains](https://img.shields.io/badge/Domains-69-4c8eda)](references/)
+[![Commands](https://img.shields.io/badge/Commands-49-e87c2b)](skills/)
 [![Examples](https://img.shields.io/badge/Examples-28-6f42c1)](examples/)
 [![Editors](https://img.shields.io/badge/Editors-VSCode%20%7C%20Cursor%20%7C%20Copilot-2ea44f)](EDITOR_INTEGRATIONS.md)
 [![GitHub Stars](https://img.shields.io/github/stars/nitinjain999/platform-skills?style=flat&label=Stars&color=0e1117)](https://github.com/nitinjain999/platform-skills/stargazers)
@@ -16,7 +16,7 @@
 
 | Tool | What you get |
 |---|---|
-| **Claude Code** | 40 slash commands (`/platform-skills:preflight`, `/platform-skills:kubernetes`, `/platform-skills:secrets`, and more), interactive guidance, automatic activation on relevant files |
+| **Claude Code** | 49 slash commands (`/platform-skills:preflight`, `/platform-skills:kubernetes`, `/platform-skills:secrets`, and more), interactive guidance, automatic activation on relevant files |
 | **Codex** | Skill invocation with `$platform-skills`, loaded on demand in any Codex session |
 | **Cursor** | Project rules for Chat and Agent — platform review and generation in every file context |
 | **GitHub Copilot plugin** | Interactive slash commands in Copilot Chat — install once per user via `copilot plugin install` |
@@ -128,6 +128,10 @@ All layers work independently. Agent integrations are optional.
 | 🔍 Trivy | [references/trivy.md](references/trivy.md) | Image, fs, repo, SBOM, and cluster CVE scanning; severity gates; Trivy Operator via Flux |
 | <img src="https://cdn.simpleicons.org/githubactions/2088FF" width="16" height="16" alt="GitHub Actions"> GitHub Actions | [references/github-actions.md](references/github-actions.md) | Security hardening, OIDC, SHA pinning, reusable workflows — `/platform-skills:github-actions` |
 | <img src="https://cdn.simpleicons.org/githubactions/2088FF" width="16" height="16" alt="GitHub Actions"> Composite GitHub Actions | [references/composite-actions.md](references/composite-actions.md) | Composite action scaffolding, review, hardening, testing, release, private repo access |
+| 🐈 Zizmor | [references/zizmor.md](references/zizmor.md) | Workflow and action security audit: template injection, credential persistence, unpinned `uses:`, over-broad permissions, impostor commits; personas, `zizmor.yml` policy, exit-code gating, auto-fix, SARIF — `/platform-skills:zizmor` |
+| 🦅 Kingfisher | [references/kingfisher.md](references/kingfisher.md) | Find, live-validate, map blast radius of, and revoke leaked secrets across repos, Git history, GitHub/GitLab/Bitbucket orgs, S3/GCS, Docker images, Slack, Jira, Confluence, Teams; baseline tracking, `kingfisher.yaml` policy, CI gate, pre-commit — `/platform-skills:kingfisher` |
+| 🛡️ AI Governance | [references/ai-governance.md](references/ai-governance.md) | Policy gate for AI coding agents: verified Copilot/Claude Code hook protocol, `protected_paths`/`denied_commands` schema, enforcement tiers, trusted base-branch merge-time verifier, audit logging — `/platform-skills:ai-governance` |
+| 💰 Token Optimizer | [references/token-optimizer.md](references/token-optimizer.md) | Route broad repository discovery to a cheaper worker model via native subagents; config schema, verified client capability matrix, size classification, fail-open rationale, measurement — `/platform-skills:token-optimizer` |
 | 🗺️ Platform model | [references/platform-operating-model.md](references/platform-operating-model.md) | Ownership boundaries, promotion flows, cross-tool design |
 | 🔐 Secrets | [references/secrets.md](references/secrets.md) | External Secrets Operator, Sealed Secrets, provider setup, troubleshooting — `/platform-skills:secrets` |
 | <img src="https://cdn.simpleicons.org/linkerd/2BEDA7" width="16" height="16" alt="Linkerd"> Linkerd | [references/linkerd.md](references/linkerd.md) | mTLS, proxy injection, AuthorizationPolicy, observability, multi-cluster |
@@ -145,9 +149,14 @@ All layers work independently. Agent integrations are optional.
 | <img src="https://cdn.simpleicons.org/git/F05032" width="16" height="16" alt="Git"> Conventional Commits | [references/conventional-commits.md](references/conventional-commits.md) | Message structure, type classification, atomic staging, commitlint/husky/semantic-release tooling |
 | 📋 OPA / Conftest | [references/opa.md](references/opa.md) | Rego v1 syntax, rule types, unit tests, fmt/regal/verify validation pipeline, GitHub Actions integration |
 | 🔍 PR Review | [references/pr-review.md](references/pr-review.md) | Cost impact, environment drift, ownership gaps, SOC 2 compliance, deprecated API / version hygiene, rollback feasibility |
-| 🧵 PR Comment Triage | [commands/triage.md](commands/triage.md) | `/platform-skills:triage` classifies PR comments, applies valid fixes, replies, and resolves review threads |
+| 🧵 PR Comment Triage | [skills/triage/SKILL.md](skills/triage/SKILL.md), [references/triage.md](references/triage.md) | `/platform-skills:triage` classifies a PR comment across seven finding types, applies a validated fix in an isolated worktree, replies on the thread, and resolves it only when that finding is eligible for closure |
 | ⚡ KEDA | [references/keda.md](references/keda.md) | ScaledObject, ScaledJob, TriggerAuthentication, Prometheus/SQS/Kafka/Redis/Cron/HTTP/Azure scalers, scale-to-zero, IRSA, GitOps integration, troubleshooting — `/platform-skills:keda` |
+| 🚪 Gateway API | [references/gateway-api.md](references/gateway-api.md) | Ingress on Gateway API with Envoy Gateway, migration off the retired ingress-nginx controller, ingress2gateway annotation coverage, cert-manager listener TLS, Flux layering, parallel-run cutover and rollback — `/platform-skills:gateway-api` |
 | ⚙️ Karpenter | [references/karpenter.md](references/karpenter.md) | EKS node autoscaling — NodePool, EC2NodeClass, NodeClaim, Spot diversity, disruption budgets, ODCR, private clusters, Fargate coexistence, FinOps, CA migration, v0→v1 upgrades — `/platform-skills:karpenter` |
+| ⬆️ Cluster Upgrade | [references/cluster-upgrade.md](references/cluster-upgrade.md) | Kubernetes minor-version upgrades: removed APIs in Git, rendered Helm and the live cluster (pluto, EKS upgrade insights), add-on order, drain blockers, node rotation, EKS one-step version rollback within 7 days, blue/green — `/platform-skills:cluster-upgrade` |
+| 🐤 Progressive Delivery | [references/progressive-delivery.md](references/progressive-delivery.md) | Flagger canaries on Gateway API (Envoy Gateway, Linkerd), MetricTemplates scoped to the canary pods, GitOps interplay, automatic and emergency rollback — `/platform-skills:progressive-delivery` |
+| 💾 Backup / DR | [references/backup-dr.md](references/backup-dr.md) | Velero on EKS with IRSA, schedules and retention, what a backup does not contain, timed restore drills, DR to another cluster — `/platform-skills:backup-dr` |
+| 💸 FinOps | [references/finops.md](references/finops.md) | Infracost cost diff on Terraform PRs, cost-allocation tags enforced in four layers (Terraform, Conftest, AWS Config, Kyverno), OpenCost allocation — `/platform-skills:finops` |
 | 🤖 Agent Self-Improvement | [references/agent-self-improve.md](references/agent-self-improve.md) | `.learnings/` directory setup, LRN/ERR/FEAT entry lifecycle, WAL protocol, working buffer, VFM scoring, ADL decision logic, Six Operating Pillars, heartbeat, reverse prompting, proactive agent behavior — `/platform-skills:self-improve` |
 | 🔗 Supply Chain Security | [references/supply-chain.md](references/supply-chain.md) | Cosign keyless signing, Syft SBOM generation and attestation, Trivy/Grype CVE scanning with severity gates, SLSA Level 2 provenance, Kyverno ImageValidatingPolicy enforcement — `/platform-skills:supply-chain` |
 | 🦅 Runtime Security | [references/runtime-security.md](references/runtime-security.md) | Falco eBPF deployment on EKS/GKE, custom rule authoring, Falcosidekick alert routing, rule debugging, bridging Falco signals to Kyverno admission enforcement — `/platform-skills:runtime-security` |
@@ -299,7 +308,12 @@ platform-skills/
 │   ├── helm.md                         # Helm chart patterns, lint pipeline, values design
 │   ├── pr-review.md                    # PR review: cost, drift, ownership, compliance, upgrade, rollback (v1.12.0)
 │   ├── keda.md                         # KEDA event-driven autoscaling (v1.14.0)
+│   ├── gateway-api.md                  # Gateway API ingress, ingress-nginx migration (v1.43.0)
 │   ├── karpenter.md                    # Karpenter EKS node autoscaling (v1.29.0)
+│   ├── cluster-upgrade.md              # Minor-version upgrades, EKS version rollback (v1.43.0)
+│   ├── progressive-delivery.md         # Flagger canaries on Gateway API (v1.43.0)
+│   ├── backup-dr.md                    # Velero backups and restore drills (v1.43.0)
+│   ├── finops.md                       # Infracost, cost tags, OpenCost (v1.43.0)
 │   ├── llm-observability.md                # Datadog LLMObs: instrumentation, evals, trace RCA (v1.20.0)
 │   └── awesome-docs.md                     # Animated SVG doc generation — 4 patterns, GitHub-safe CSS (v1.21.0)
 │
@@ -316,6 +330,10 @@ platform-skills/
 │   ├── helm/web-service/               # Production Helm chart: Deployment, HPA, PDB, NetworkPolicy, schema
 │   ├── triage/                         # PR comment triage scenarios and fixtures (v1.13.0)
 │   ├── keda/                           # ScaledObject, ScaledJob, TriggerAuthentication examples (v1.14.0)
+│   ├── gateway-api/                    # Ingress → HTTPRoute before/after, validator (v1.43.0)
+│   ├── progressive-delivery/           # Flagger via Flux, Canary and MetricTemplates (v1.43.0)
+│   ├── backup-dr/                      # Velero via Flux, IAM policy, restore drill script (v1.43.0)
+│   ├── finops/                         # Tag enforcement, OpenCost, Infracost workflow (v1.43.0)
 │   ├── awesome-docs/                       # Animated SVG templates: arch-flow, lifecycle-loop, field-carousel, timeline-phases (v1.21.0)
 │   └── compliance/                     # SOC 2 Terraform examples (v1.6.0)
 │       ├── checkov-config.yaml         # Checkov config grouped by SOC 2 criterion
@@ -343,7 +361,7 @@ platform-skills/
 
 ## Roadmap
 
-**Current release: v1.37.0** — 40 commands, 40 domain reference guides, 50+ wiki pages.
+**Current release: v1.43.0** — 49 commands, 69 domain reference guides, 50+ wiki pages.
 
 Full version history is in [CHANGELOG.md](CHANGELOG.md).
 

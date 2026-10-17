@@ -195,13 +195,13 @@ Follow this checklist when adding a net-new domain (e.g. a new command + referen
 - [ ] References related domains with relative links
 - [ ] Added to `REQUIRED_REFERENCES` array in `tests/validate-skill.sh`
 
-### 2. Command file — `commands/<domain>.md`
+### 2. Skill — `skills/<domain>/SKILL.md`
 
-- [ ] File exists at `commands/<domain>.md`
+- [ ] File exists at `skills/<domain>/SKILL.md` (one directory per skill; supporting files can sit beside it)
 - [ ] Has YAML frontmatter: `name:`, `description:`, `argument-hint:`
 - [ ] Defines at least one `## Mode:` section
-- [ ] Registered in `.claude-plugin/plugin.json` commands array
-- [ ] Run `tests/validate-skill.sh` to confirm registration
+- [ ] Do not add a `commands` or `skills` key to `.claude-plugin/plugin.json`; `skills/` is scanned by default and either key fails validation
+- [ ] Run `tests/validate-skill.sh` and `tests/release-consistency.sh` to confirm the skill loads as `/platform-skills:<domain>`
 
 ### 3. SKILL.md (both copies)
 
@@ -241,6 +241,12 @@ Follow this checklist when adding a net-new domain (e.g. a new command + referen
 - [ ] `bash tests/handbook-consistency.sh` — all checks pass
 - [ ] `bash tests/release-consistency.sh` — all checks pass
 - [ ] `bash tests/validate-ci.sh` — all checks pass
+- [ ] `bash tests/scan-secrets.sh` — all checks pass (stage new files first; it scans tracked files)
+- [ ] `bash tests/validate-terraform.sh` — only if you touched `*.tf`; takes a few minutes
+
+The last two are the exact scripts `validate.yml` and `release.yml` run, so a local
+pass means those gates will pass. Run them from anywhere — they resolve the repo
+root themselves.
 
 ### 8. Wiki (post-merge)
 
@@ -308,7 +314,7 @@ See [AWS IAM docs](https://docs.aws.amazon.com/iam/) for reference.
 
 ## Development Setup
 
-Before contributing, read `CLAUDE.md` for the design philosophy, content structure, and writing principles that all patterns in this repository follow.
+Before contributing, read `CLAUDE.md` for the design philosophy and writing principles that all patterns in this repository follow. The repository layout is in the "Repository structure" section of `README.md`.
 
 ### Prerequisites
 

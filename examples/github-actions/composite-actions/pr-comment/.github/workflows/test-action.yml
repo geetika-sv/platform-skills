@@ -14,12 +14,19 @@ on:
 #       -P ubuntu-latest=catthehacker/ubuntu:act-22.04 \
 #       --secret GITHUB_TOKEN=$GITHUB_TOKEN
 
+# With no permissions block at all, the job token inherits the repository default,
+# which on many repos is still read/write across every scope. Deny by default and
+# let each job grant what it needs.
+permissions: {}
+
 jobs:
   # Test 1 — missing title fails
   test-missing-title:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read       # checkout only
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Run with empty title — expect failure
         id: comment
         uses: ./
@@ -37,8 +44,10 @@ jobs:
   # Test 2 — missing body fails
   test-missing-body:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read       # checkout only
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Run with empty body — expect failure
         id: comment
         uses: ./
@@ -56,8 +65,10 @@ jobs:
   # Test 3 — non-PR event emits warning but does not fail
   test-non-pr-event:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read       # checkout only; no PR to comment on
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Run on push event (no PR number) — should warn, not fail
         id: comment
         uses: ./
@@ -80,9 +91,10 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: write
+      contents: read       # checkout
+      pull-requests: write # the only job that actually posts a comment
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Post initial comment
         id: first

@@ -93,23 +93,27 @@ runs:
       env:
         REGISTRY: ${{ inputs.registry }}
         IMAGE_NAME: ${{ inputs.image_name }}
-      run: |
         # github.repository_owner is lowercased automatically by GitHub
-        OWNER="${{ github.repository_owner }}"
-        URI="${REGISTRY}/${OWNER}/${IMAGE_NAME}:${{ steps.compute_tag.outputs.tag }}"
+        OWNER: ${{ github.repository_owner }}
+        IMAGE_TAG: ${{ steps.compute_tag.outputs.tag }}
+      run: |
+        URI="${REGISTRY}/${OWNER}/${IMAGE_NAME}:${IMAGE_TAG}"
+        # Publish as a step output only. Writing to GITHUB_ENV would let a newline
+        # in the tag inject arbitrary variables into every later step's
+        # environment (LD_PRELOAD, NODE_OPTIONS), which is remote code execution.
+        # Consumers read steps.compute_uri.outputs.uri instead.
         echo "uri=$URI" >> "$GITHUB_OUTPUT"
-        echo "IMAGE_URI=$URI" >> "$GITHUB_ENV"
 
     # ── 4. Set up buildx ─────────────────────────────────────────────────────
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8  # v4.2.0
+      uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1  # v4.4.0
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c  # v4.2.0
+      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069  # v4.4.1
 
     # ── 5. Authenticate to registry (OIDC — no static credentials) ───────────
     - name: Log in to registry
-      uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0  # v4.4.0
+      uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
       with:
         registry: ${{ inputs.registry }}
         username: ${{ github.actor }}
@@ -129,7 +133,7 @@ runs:
     # ── 7. Build and push ─────────────────────────────────────────────────────
     - name: Build and push image
       id: push
-      uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a  # v7.3.0
+      uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0
       with:
         context: ${{ inputs.context }}
         file: ${{ inputs.dockerfile }}
@@ -147,9 +151,17 @@ runs:
     - name: Write job summary
       if: always()
       shell: bash
+      # One env: block per step. A second one silently overwrites the first,
+      # and every ${{ }} used by the script belongs here rather than inline —
+      # expressions are substituted before bash parses the line.
       env:
         PUSH_ENABLED: ${{ inputs.push }}
         DIGEST: ${{ steps.push.outputs.digest }}
+        IMAGE_URI: ${{ steps.compute_uri.outputs.uri }}
+        IMAGE_TAG: ${{ steps.compute_tag.outputs.tag }}
+        PLATFORMS: ${{ inputs.platforms }}
+        ACTOR: ${{ github.actor }}
+        WORKFLOW_NAME: ${{ github.workflow }}
       run: |
         echo "::group::Job summary"
         {
@@ -157,13 +169,13 @@ runs:
           echo ""
           echo "| Field | Value |"
           echo "|---|---|"
-          echo "| Image URI | \`$IMAGE_URI\` |"
-          echo "| Tag | \`${{ steps.compute_tag.outputs.tag }}\` |"
-          echo "| Platforms | \`${{ inputs.platforms }}\` |"
+          echo "| Image URI | \`${IMAGE_URI}\` |"
+          echo "| Tag | \`${IMAGE_TAG}\` |"
+          echo "| Platforms | \`${PLATFORMS}\` |"
           echo "| Digest | \`${DIGEST:-n/a}\` |"
           echo "| Pushed | ${PUSH_ENABLED} |"
-          echo "| Actor | ${{ github.actor }} |"
-          echo "| Workflow | ${{ github.workflow }} |"
+          echo "| Actor | ${ACTOR} |"
+          echo "| Workflow | ${WORKFLOW_NAME} |"
         } >> "$GITHUB_STEP_SUMMARY"
         echo "::endgroup::"
 

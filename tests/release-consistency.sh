@@ -215,14 +215,11 @@ done
 echo ""
 echo "=== Command count consistency ==="
 
-ACTUAL_CMD_COUNT=$(find commands/ -name "*.md" | wc -l | tr -d ' ')
-PLUGIN_CMD_COUNT=$(jq '.commands | length' .claude-plugin/plugin.json)
-
-if [ "$ACTUAL_CMD_COUNT" -eq "$PLUGIN_CMD_COUNT" ]; then
-  pass "commands/ ($ACTUAL_CMD_COUNT files) matches plugin.json commands array ($PLUGIN_CMD_COUNT entries)"
-else
-  fail "commands/ has $ACTUAL_CMD_COUNT files but plugin.json has $PLUGIN_CMD_COUNT entries"
-fi
+# Each domain is a skill at skills/<name>/SKILL.md, run as /platform-skills:<name>.
+# skills/platform-skills is the cross-domain router, not a domain command.
+DOMAIN_SKILLS="$(find skills -mindepth 2 -maxdepth 2 -name SKILL.md | grep -v '^skills/platform-skills/' | sort)"
+ACTUAL_CMD_COUNT=$(printf '%s\n' "$DOMAIN_SKILLS" | grep -c .)
+pass "skills/ holds $ACTUAL_CMD_COUNT domain skills"
 
 # All major docs must reflect the actual count
 for doc in GETTING_STARTED.md QUICKSTART.md CHANGELOG.md; do
@@ -235,16 +232,34 @@ done
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "=== All commands registered in plugin.json ==="
+echo "=== All skills load under their /platform-skills:<name> command ==="
 
-for cmd_file in commands/*.md; do
-  cmd_path="./$cmd_file"
-  if jq -e --arg p "$cmd_path" '.commands[] | select(. == $p)' .claude-plugin/plugin.json >/dev/null 2>&1; then
-    pass "$cmd_file registered"
+# skills/ is scanned by default. A "skills" key adds directories (the router
+# would load twice) and a "commands" key replaces the commands/ scan; neither
+# belongs in the manifest now that every domain is a skill.
+if jq -e 'has("commands") or has("skills")' .claude-plugin/plugin.json >/dev/null; then
+  fail "plugin.json declares commands or skills; remove them so skills/ is scanned by default"
+else
+  pass "plugin.json leaves skills/ to the default scan"
+fi
+# A skill takes precedence over a same-named command, so a leftover command
+# file would be silently shadowed rather than run.
+if [ -d commands ] && find commands -name '*.md' | grep -q .; then
+  fail "commands/ still holds .md files; move them to skills/<name>/SKILL.md"
+else
+  pass "no legacy commands/ files"
+fi
+while IFS= read -r skill_file; do
+  dir_name="$(basename "$(dirname "$skill_file")")"
+  fm_name="$(awk '/^name:/{print $2; exit}' "$skill_file")"
+  # name sets the command's last segment; it must match the directory so the
+  # /platform-skills:<name> users already type keeps working.
+  if [ "$fm_name" = "$dir_name" ]; then
+    pass "$skill_file runs as /platform-skills:$dir_name"
   else
-    fail "$cmd_file not registered in plugin.json"
+    fail "$skill_file frontmatter name '$fm_name' differs from its directory '$dir_name'"
   fi
-done
+done <<< "$DOMAIN_SKILLS"
 
 # ---------------------------------------------------------------------------
 echo ""
@@ -252,7 +267,7 @@ echo "=== All commands present in canonical docs ==="
 
 REQUIRED_SLASH_DOCS=(SKILL.md skills/platform-skills/SKILL.md COMMANDS.md HOW_IT_WORKS.md)
 
-for cmd_file in commands/*.md; do
+for cmd_file in $DOMAIN_SKILLS; do
   cmd_name="$(awk '/^name:/{print $2; exit}' "$cmd_file")"
   [ -z "$cmd_name" ] && continue
 
@@ -287,7 +302,7 @@ echo ""
 echo "=== Domain coverage: README.md mentions, SKILL.md reference, examples/ directory ==="
 
 # Cross-cutting docs with no per-domain example directory or command — skip coverage checks
-SKIP_DOMAINS="platform-operating-model|platform-mindset|secrets|pr-review|setup-agents-generate|setup-agents-add|setup-agents-prompts|setup-agents-schemas|setup-agents-template|setup-agents-review"
+SKIP_DOMAINS="platform-operating-model|platform-mindset|secrets|pr-review|setup-agents-generate|setup-agents-build|setup-agents-add|setup-agents-prompts|setup-agents-schemas|setup-agents-template|setup-agents-review"
 
 for ref in references/*.md; do
   domain="$(basename "$ref" .md)"
@@ -321,6 +336,34 @@ if grep -q "platform-skills  v${PLUGIN_VERSION}  enabled" INSTALLATION.md; then
 else
   fail "INSTALLATION.md verify output does not show v${PLUGIN_VERSION}"
 fi
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Docs site ==="
+# Website assertions live in tests/website-coverage.sh, which also checks that
+# every command and reference reaches the site. Keeping a second copy here is
+# how this repo's YAML and Terraform gates diverged between validate.yml and
+# release.yml; one gate, one home.
+# Actually invoke it. A bare `pass` here reported "safe to tag" while website
+# coverage or derivation checks were failing — a fake green on the one gate that
+# is documented as the pre-tag check.
+#
+# mktemp, not "/tmp/<name>.$$.log". A PID-derived name in a world-writable
+# directory is predictable, and `>` follows symlinks, so on a shared host someone
+# could pre-create that path pointing at a file the operator owns and have this
+# script truncate it — then feed arbitrary text into the release output that `sed`
+# echoes back. mktemp creates the file itself with O_EXCL and 0600.
+WEBSITE_LOG="$(mktemp "${TMPDIR:-/tmp}/website-coverage.XXXXXX")"
+# shellcheck disable=SC2064  # expand WEBSITE_LOG now: it must not change later
+trap "rm -f '$WEBSITE_LOG'" EXIT INT TERM
+if bash tests/website-coverage.sh > "$WEBSITE_LOG" 2>&1; then
+  pass "tests/website-coverage.sh passed"
+else
+  fail "tests/website-coverage.sh FAILED — output follows"
+  sed 's/^/    /' "$WEBSITE_LOG"
+fi
+rm -f "$WEBSITE_LOG"
+trap - EXIT INT TERM
 
 # ---------------------------------------------------------------------------
 echo ""

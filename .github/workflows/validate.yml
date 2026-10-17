@@ -12,6 +12,13 @@ on:
       - '**.json'
       - '**.sh'
       - '.github/workflows/**'
+      - '**go.mod'
+      - '**go.sum'
+      - '**requirements*.txt'
+      - '**Pipfile'
+      - '**Pipfile.lock'
+      - '**pyproject.toml'
+      - '**poetry.lock'
   push:
     branches:
       - main
@@ -23,14 +30,24 @@ on:
       - '**.json'
       - '**.sh'
       - '.github/workflows/**'
+      - '**go.mod'
+      - '**go.sum'
+      - '**requirements*.txt'
+      - '**Pipfile'
+      - '**Pipfile.lock'
+      - '**pyproject.toml'
+      - '**poetry.lock'
 
 concurrency:
   group: validate-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
+# contents: read is all any job here needs — every one of them only checks out and
+# inspects files. pull-requests: write was granted but never used, and this
+# workflow runs on pull_request, so it handed a comment/label-write token to jobs
+# that npm-install and download third-party linters.
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   detect-changes:
@@ -41,7 +58,7 @@ jobs:
       yaml: ${{ steps.filter.outputs.yaml }}
       terraform: ${{ steps.filter.outputs.terraform }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 2
       - id: filter
@@ -77,7 +94,7 @@ jobs:
     needs: detect-changes
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Check required files
         run: |
@@ -205,7 +222,7 @@ jobs:
     if: needs.detect-changes.outputs.markdown == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Install markdownlint
         run: |
@@ -252,7 +269,7 @@ jobs:
     if: needs.detect-changes.outputs.yaml == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Install yq
         run: |
@@ -261,10 +278,14 @@ jobs:
 
       - name: Validate all YAML files
         run: |
-          # Exclude Helm template directories — Go template syntax ({{ }}) is not valid YAML
+          # Exclude any Helm chart templates directory — Go template syntax ({{ }}) is
+          # not valid YAML. Matched on */templates/* rather than a fixed prefix so a
+          # chart copied elsewhere (e.g. into a benchmark fixture's evidence/) is also
+          # covered. Verified: every YAML under a templates/ dir in this repo is a Go
+          # template, so this excludes nothing that yq could otherwise validate.
           YAML_FILES=$(find . -type f \( -name "*.yml" -o -name "*.yaml" \) \
             ! -path "./.git/*" \
-            ! -path "./examples/helm/*/templates/*")
+            ! -path "*/templates/*")
 
           if [ -z "$YAML_FILES" ]; then
             echo "ℹ️  No YAML files found"
@@ -291,7 +312,12 @@ jobs:
         run: |
           K8S_FILES=$(find . -type f \( -name "*.yml" -o -name "*.yaml" \) \
             \( \
-              -path "./examples/flux/*" -o \
+              -path "./examples/fluxcd/*" -o \
+              -path "./examples/gateway-api/*" -o \
+              -path "./examples/progressive-delivery/*" -o \
+              -path "./examples/backup-dr/*" -o \
+              -path "./examples/finops/kubernetes/*" -o \
+              -path "./examples/finops/opencost/*" -o \
               -path "./examples/argocd/*" -o \
               -path "./examples/kubernetes/*" -o \
               -path "./examples/openshift/*" \
@@ -308,12 +334,21 @@ jobs:
           tar xzf kubeconform-linux-amd64.tar.gz
           sudo mv kubeconform /usr/local/bin/
 
+          # Custom resources (Flux, Gateway API, cert-manager, Envoy Gateway, Flux Operator)
+          # are validated against the datreeio CRDs catalog, pinned to a commit so a catalog
+          # change cannot turn CI red on its own. -strict rejects unknown fields, which is
+          # what catches a misspelled CRD field; without the catalog every CRD kind was
+          # silently skipped by -ignore-missing-schemas.
+          CRD_CATALOG='https://raw.githubusercontent.com/datreeio/CRDs-catalog/63669a570e231d4f1f8396d229a1de512bcf0a34/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+
           ERRORS=0
           while IFS= read -r file; do
             echo "Validating Kubernetes manifest: $file"
             # -skip Route: OpenShift Route CRD has no entry in yannh/kubernetes-json-schema;
             # kubeconform returns a 429 rate-limit error (not 404) which -ignore-missing-schemas does not catch.
-            if ! kubeconform -summary -output text -ignore-missing-schemas -skip Route "$file"; then
+            # -ignore-missing-schemas still skips kinds neither location knows (e.g. kustomize.config.k8s.io).
+            if ! kubeconform -strict -summary -output text -ignore-missing-schemas -skip Route \
+                -schema-location default -schema-location "$CRD_CATALOG" "$file"; then
               echo "❌ Kubeconform validation failed: $file"
               ERRORS=$((ERRORS + 1))
             fi
@@ -333,67 +368,16 @@ jobs:
     if: needs.detect-changes.outputs.terraform == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e  # v4.0.1
         with:
-          terraform_version: 1.15.7
+          terraform_version: v1.16.5
 
       - name: Find and validate Terraform directories
-        run: |
-          # Find all directories containing .tf files
-          # Exclude examples/demo — demo dirs intentionally pair bad+fixed files that conflict as one module
-          TF_DIRS=$(find . -type f -name "*.tf" ! -path "./.git/*" ! -path "./examples/demo/*" -exec dirname {} \; | sort -u)
-
-          if [ -z "$TF_DIRS" ]; then
-            echo "ℹ️  No Terraform files found"
-            exit 0
-          fi
-
-          ERRORS=0
-          while IFS= read -r dir; do
-            echo ""
-            echo "📁 Validating Terraform in: $dir"
-            echo "─────────────────────────────────────"
-
-            (
-              cd "$dir"
-
-              # Format check
-              if ! terraform fmt -check -recursive; then
-                echo "❌ Terraform formatting issues in: $dir"
-                exit 1
-              else
-                echo "✅ Terraform formatting correct"
-              fi
-
-              # Initialize (backend=false to avoid remote state)
-              if ! terraform init -backend=false; then
-                echo "❌ Terraform init failed in: $dir"
-                exit 1
-              else
-                echo "✅ Terraform init successful"
-              fi
-
-              # Validate
-              if ! terraform validate; then
-                echo "❌ Terraform validation failed in: $dir"
-                exit 1
-              else
-                echo "✅ Terraform validation successful"
-              fi
-            ) || ERRORS=$((ERRORS + 1))
-          done <<< "$TF_DIRS"
-
-          if [ $ERRORS -gt 0 ]; then
-            echo ""
-            echo "❌ Found $ERRORS Terraform validation errors"
-            exit 1
-          fi
-
-          echo ""
-          echo "✅ All Terraform validations passed"
+        # Shared with release.yml and terraform-drift.yml.
+        run: bash tests/validate-terraform.sh
 
   validate-security:
     name: Security Checks
@@ -401,37 +385,13 @@ jobs:
     needs: detect-changes
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Check for secrets in code
-        run: |
-          # Check for common secret patterns
-          # Exclude: GitHub Actions variables, terraform backend config,
-          #   examples/ (templates — sensitive values always use var.xxx),
-          #   validate.yml (this script — its regex patterns self-match)
-          POTENTIAL_SECRETS=$(grep -rE '(password|secret|key|token|apikey).*=.*["\x27][^"\x27]{8,}["\x27]' \
-             --exclude-dir=.git \
-             --exclude-dir=node_modules \
-             --exclude-dir=examples \
-             --exclude="*.md" \
-             --exclude="CHANGELOG.md" \
-             --exclude="QUALITY_ASSURANCE.md" \
-             --exclude="validate.yml" . | \
-             grep -v 'matrix\.' | \
-             grep -v 'vars\.' | \
-             grep -v 'secrets\.' | \
-             grep -v 'backend-config=' | \
-             grep -v 'token.actions.githubusercontent.com' || true)
-
-          if [ -n "$POTENTIAL_SECRETS" ]; then
-            echo "⚠️  Potential secrets found in code:"
-            echo "$POTENTIAL_SECRETS"
-            echo ""
-            echo "Review above matches to ensure they are not real secrets"
-            exit 1
-          fi
-
-          echo "✅ No obvious secrets detected"
+        # Both the repository-wide heuristic scan and the tighter agentic-source
+        # scan live in tests/scan-secrets.sh. release.yml calls the same script,
+        # so the two gates cannot drift apart again.
+        run: bash tests/scan-secrets.sh
 
       - name: Check for GitHub Actions security
         run: |
@@ -484,13 +444,46 @@ jobs:
     needs: detect-changes
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      # examples/gateway-api/gateway-api-validate.sh (run by validate-skill.sh) renders
+      # every Flux overlay and checks it with kubeconform -strict against the pinned
+      # CRDs catalog. Raw-file validation cannot do that: patch bodies are strings.
+      # Without the binary the validator fails in CI rather than skipping.
+      - name: Install kubeconform
+        env:
+          KUBECONFORM_VERSION: v0.8.0
+          KUBECONFORM_SHA256: 9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883
+        run: |
+          curl -fsSLo kubeconform.tar.gz \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          echo "${KUBECONFORM_SHA256}  kubeconform.tar.gz" | sha256sum -c -
+          tar xzf kubeconform.tar.gz kubeconform
+          sudo mv kubeconform /usr/local/bin/
+          kubeconform -v
 
       - name: Run skill structure validation
         run: bash tests/validate-skill.sh
 
       - name: Run helmcheck validation
         run: bash tests/validate-helmcheck.sh
+
+      # Model-free checks of the claude plugin eval suite. The suite itself is
+      # billed per run and is not run in CI yet; see plugin-evals/README.md.
+      - name: Check plugin eval suite structure
+        run: |
+          python3 -I -c 'import yaml' 2>/dev/null || sudo apt-get install -y -qq python3-yaml
+          bash tests/plugin-evals-structure.sh
+
+      # Portable skills for Copilot, Cursor and Codex (install.sh --skills).
+      - name: Check portable skill rendering
+        run: bash tests/render-skills.sh
+
+      # The platform-guardrails plugin: script drift from examples/, hook
+      # wiring, and the opt-in governance behaviour. jq and yq are on the runner.
+      - name: Check platform-guardrails plugin
+        run: bash tests/guardrails-plugin.sh
+
 
   summary:
     name: Validation Summary

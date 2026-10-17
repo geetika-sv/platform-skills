@@ -22,6 +22,10 @@ Commands work in any conversation — type the slash command or describe your pr
 | [/platform-skills:terraform](#platform-skillsterraform) | Terraform validation pipeline + blast radius |
 | [/platform-skills:checkov](#platform-skillscheckov) | Checkov bootstrap, static + plan-level Terraform scanning, multi-cloud, fix mode |
 | [/platform-skills:trivy](#platform-skillstrivy) | Container image, fs, repo, SBOM, and cluster CVE scanning; three-layer wizard; Trivy Operator via Flux |
+| [/platform-skills:zizmor](#platform-skillszizmor) | GitHub Actions workflow security audit — template injection, unpinned uses, permissions; three-layer wizard; auto-fix, policy file, CI gate, pre-commit |
+| [/platform-skills:kingfisher](#platform-skillskingfisher) | Find, live-validate, map blast radius of, and revoke leaked secrets — repo, Git history, GitHub/GitLab/Bitbucket orgs, S3/GCS, Slack, Jira; baseline tracking, CI gate, pre-commit |
+| [/platform-skills:ai-governance](#platform-skillsai-governance) | Policy gate for AI coding agents — Copilot and Claude Code session hooks that deny protected-path edits and dangerous commands, plus a merge-time backstop; dry-run, fleet audit, plain-English explain |
+| [/platform-skills:token-optimizer](#platform-skillstoken-optimizer) | Route broad repository discovery to a cheaper worker model via native subagents — `inspect`, `setup`, `doctor`, `explain`, `benchmark`, `report`, `disable`, `remove` |
 | [/platform-skills:gitops](#platform-skillsgitops) | Flux CD / Argo CD — debug live cluster issues or audit a GitOps repo |
 | [/platform-skills:linkerd](#platform-skillslinkerd) | Linkerd mTLS, injection, policy, multi-cluster |
 | [/platform-skills:linux](#platform-skillslinux) | Linux, DNS, load balancing, VPC/VNet, networking |
@@ -40,7 +44,12 @@ Commands work in any conversation — type the slash command or describe your pr
 | [/platform-skills:pr-review](#platform-skillspr-review) | Comprehensive PR risk review |
 | [/platform-skills:triage](#platform-skillstriage) | Triage and resolve PR comments |
 | [/platform-skills:keda](#platform-skillskeda) | KEDA ScaledObject/ScaledJob — generate, debug, review, scale |
+| [/platform-skills:gateway-api](#platform-skillsgateway-api) | Migrate off retired ingress-nginx to Gateway API — assess, convert, scaffold, cutover, debug, review, rollback |
 | [/platform-skills:karpenter](#platform-skillskarpenter) | Karpenter NodePool/EC2NodeClass — generate, debug, review, audit scale history, plan capacity, migrate from CA, upgrade |
+| [/platform-skills:cluster-upgrade](#platform-skillscluster-upgrade) | Plan, scan, run and roll back a Kubernetes minor-version upgrade, EKS version rollback included |
+| [/platform-skills:progressive-delivery](#platform-skillsprogressive-delivery) | Flagger canaries on Gateway API with metric-gated promotion and automatic rollback |
+| [/platform-skills:backup-dr](#platform-skillsbackup-dr) | Velero backups, timed restore drills, namespace restore, DR to another cluster |
+| [/platform-skills:finops](#platform-skillsfinops) | Infracost PR cost diff, OpenCost allocation, four-layer cost-tag enforcement |
 | [/platform-skills:self-improve](#platform-skillsself-improve) | Bootstrap, log, review, or promote agent self-improvement entries |
 | [/platform-skills:chaos](#platform-skillschaos) | Install Litmus Chaos or Chaos Mesh, generate fault experiments, schedule chaos, run GameDay, debug, report |
 | [/platform-skills:dora](#platform-skillsdora) | Instrument DORA metrics, generate Grafana dashboards, benchmark against performance bands, debug metric gaps |
@@ -117,7 +126,7 @@ resource "aws_iam_role_policy" "app" {
 
 Review Helm values against a specific chart:
 ```
-/platform-skills:preflight my values.yaml for the ingress-nginx chart — are resource limits set? Is the service account locked down?
+/platform-skills:preflight my values.yaml for the envoy-gateway chart — are resource limits set? Is the service account locked down?
 ```
 
 **What comes back:** A structured report grouped by severity. Critical items block merge; Improvements are non-blocking; Notes are informational.
@@ -216,6 +225,214 @@ AWS resource creation failing:
 /platform-skills:trivy set up a CI severity gate for my container image
 /platform-skills:trivy deploy Trivy Operator for continuous cluster monitoring
 /platform-skills:trivy scan this SBOM for known vulnerabilities
+```
+
+---
+
+## `/platform-skills:zizmor`
+
+**What it does:** Audits GitHub Actions workflows, composite actions, `dependabot.yml`, and `.pre-commit-config.yaml` for security findings using [zizmor](https://docs.zizmor.sh) — template injection, credential persistence via `actions/checkout`, unpinned `uses:`, over-broad `permissions:`, impostor commits, known-vulnerable action versions, and 35 more audits. A three-layer interactive wizard routes intent → scope and operating mode → explicit trade-offs, so the output is a triaged verdict rather than a finding dump.
+
+Zizmor answers *"is this workflow safe?"*; actionlint answers *"is this workflow valid?"* This command complements `/platform-skills:github-actions` — it does not replace it.
+
+```
+/platform-skills:zizmor
+/platform-skills:zizmor scan .
+/platform-skills:zizmor audit
+/platform-skills:zizmor fix
+/platform-skills:zizmor triage
+/platform-skills:zizmor config
+/platform-skills:zizmor ci
+/platform-skills:zizmor precommit
+/platform-skills:zizmor explain template-injection
+```
+
+**Modes:**
+
+| Mode | What it does |
+|------|-------------|
+| `scan` | Default-persona audit with `--strict-collection`, online if a token is available — the everyday run |
+| `audit` | Deep sweep for human review: `--persona=auditor --min-confidence=low --collect=all --no-ignores` |
+| `fix` | `--fix=safe` on a clean tree, diff review, then re-audit what remains |
+| `triage` | Walk findings one at a time → fix / inline-ignore / config-ignore / severity remap / disable |
+| `config` | Generate or repair `.github/zizmor.yml` — pinning policy, allowlists, suppressions with justifications |
+| `ci` | Emit the GHA workflow: SARIF alerts, hard-fail severity gate, or both |
+| `precommit` | Add the `zizmorcore/zizmor-pre-commit` hook and state the offline caveat |
+| `explain` | Explain one audit id or finding: mechanism, why it matters, persona gating, exact remediation |
+
+**Guardrails it enforces:**
+
+- Asks the pinning policy explicitly before reporting `unpinned-uses` findings or writing a config — full commit SHA (`hash-pin`, recommended) or semver tag (`ref-pin`) — and states what a tag pin costs: a tag is a mutable pointer the author can repoint at different code after review. Never relaxes the policy just to clear findings.
+- Never reports a repo "clean" from an offline run without naming the four online-only audits that did not execute (`impostor-commit`, `known-vulnerable-actions`, `ref-confusion`, `stale-action-refs`).
+- Never presents a SARIF-only workflow as a merge blocker — `--format=sarif` suppresses exit codes 11–14, so the job stays green with high-severity findings.
+- Never puts `--fix` inside a CI gate — a gate that repairs its own input always passes.
+- Never gates CI on `--persona=auditor`, which is documented to include likely false positives.
+- Always adds `--strict-collection`, so "0 findings" cannot silently mean "0 files audited".
+
+**Example prompts:**
+```
+/platform-skills:zizmor audit my workflows before I merge this PR
+/platform-skills:zizmor pin every action to a SHA and show me the diff
+/platform-skills:zizmor these findings are too noisy — help me triage
+/platform-skills:zizmor set up a PR check that actually fails on medium+ findings
+/platform-skills:zizmor why is this run: block flagged as template-injection?
+```
+
+---
+
+## `/platform-skills:kingfisher`
+
+**What it does:** Finds, live-validates, maps the blast radius of, and revokes leaked secrets using [Kingfisher](https://github.com/mongodb/kingfisher) — across a local repo and Git history, or a GitHub/GitLab/Bitbucket/Gitea/Azure Repos/Hugging Face org, S3/GCS bucket, Docker image, Slack, Jira, Confluence, Microsoft Teams, or Postman workspace. A three-layer interactive wizard routes intent → scan target and invasiveness → explicit trade-offs (gate threshold, suppression method, alert payload contents), so the output is a validated, triaged verdict rather than a wall of candidate strings.
+
+Kingfisher answers *"is this secret still live, and what can it reach?"*; Trivy's `secrets` mode answers *"does this look like a secret?"* offline, bundled with a CVE scan. Run both — they are complementary depths, not alternatives.
+
+```
+/platform-skills:kingfisher
+/platform-skills:kingfisher scan .
+/platform-skills:kingfisher audit
+/platform-skills:kingfisher validate --rule github-pat "ghp_..."
+/platform-skills:kingfisher revoke
+/platform-skills:kingfisher baseline
+/platform-skills:kingfisher triage
+/platform-skills:kingfisher config
+/platform-skills:kingfisher ci
+/platform-skills:kingfisher precommit
+/platform-skills:kingfisher explain betterleaks.github-pat
+```
+
+**Modes:**
+
+| Mode | What it does |
+|------|-------------|
+| `scan` | Default local/repo run, live validation on — the everyday check |
+| `audit` | Deep sweep for a security review: low confidence, full history, blast-radius, all outcomes |
+| `validate` | Check whether one known secret string is still live — no scan |
+| `revoke` | Kill one known secret directly through its provider — destructive, confirm first |
+| `baseline` | Create or update a baseline so future scans report only new secrets |
+| `triage` | Walk existing findings one at a time → validate / revoke / rotate / accept-in-baseline / false-positive |
+| `config` | Generate or repair `kingfisher.yaml` |
+| `ci` | Emit a CI gate: hard-fail, SARIF alerts, or Docker-based |
+| `precommit` | Add the `kingfisher-auto` pre-commit hook (or Husky) and state the caveat |
+| `explain` | Explain a rule id, an exit code, or a validation outcome |
+
+**Guardrails it enforces:**
+
+- Never runs `revoke` without three-part confirmation: validated live, owner identified, replacement ready to redeploy — a wrong revoke is an outage, not a rollback.
+- Never runs blast-radius mapping, a platform-target scan, or a Slack/Jira/Confluence/Teams search without confirming authorization first — these authenticate against or pull from live systems.
+- Never treats an `assumed` (high-confidence, not network-checked) finding as confirmed-live.
+- Never gates a first-time CI rollout on exit code `200` (any candidate) without surfacing the fixture-noise trade-off — recommends `205` (confirmed-live only) plus a baseline instead.
+- Never suggests disabling a whole rule family to silence one fixture — uses a baseline entry or scoped `skip-word`/`skip-regex` instead.
+- Never enables `--alert-include-secret` without stating plainly that the literal secret value lands in the alert payload.
+
+**Example prompts:**
+```
+/platform-skills:kingfisher scan our Git history for leaked secrets
+/platform-skills:kingfisher is this AWS key still live, and what can it reach?
+/platform-skills:kingfisher set up a baseline so we only get paged on new secrets
+/platform-skills:kingfisher add a CI gate that fails on confirmed-live credentials
+/platform-skills:kingfisher revoke this GitHub token — rotation is already done
+```
+
+---
+
+## `/platform-skills:ai-governance`
+
+**What it does:** Scaffolds and enforces a policy gate for AI coding agents (GitHub Copilot, Claude Code) operating on a repo. Two layers, one shared bash evaluator: a real-time `preToolUse` session hook that denies an edit to a protected path or a dangerous shell command *before* it executes, and a merge-time GitHub Actions check that catches anything bypassing the hook — a different tool, a manual push, or an edit to the governance files themselves. The merge-time check gets its trust from *which copy* of the evaluator runs: the base branch's, fetched via `git show`, never the PR's own.
+
+Policy lives in `.ai-governance.yaml` (`protected_paths`, `denied_commands`, `max_diff_files`, `require_disclosure`) with three enforcement tiers — `audit`, `warn`, `block` — so a team ratchets up once it trusts the false-positive rate rather than starting on a hard block that gets uninstalled on day one.
+
+`/platform-skills:setup-agents` scaffolds what AI tools *are*; this command scaffolds what they are *allowed to do*. `/platform-skills:opa` is infra policy-as-code against manifests; this is agent-behavior policy against tool calls and diffs. Two different engines — do not conflate them.
+
+```
+/platform-skills:ai-governance
+/platform-skills:ai-governance generate
+/platform-skills:ai-governance check .github/workflows/release.yml
+/platform-skills:ai-governance check --diff main...HEAD
+/platform-skills:ai-governance audit
+/platform-skills:ai-governance explain .ai-governance.yaml
+```
+
+**Modes:**
+
+| Mode | What it does |
+|------|-------------|
+| `generate` | Scaffold `.ai-governance.yaml`, the evaluator, Copilot/Claude session hooks, and the merge-time check |
+| `check` | Dry-run the evaluator against a path, a command string, or a diff range — no live agent session, no audit-log writes |
+| `audit` | Scan repos in an org via `gh api` for policy presence, enforcement tier, and hook drift — zero infrastructure |
+| `explain` | Plain-English translation of an existing `.ai-governance.yaml`, including what a developer actually sees at the active tier |
+
+**Guardrails it enforces:**
+
+- Never overwrites `.claude/settings.json` — always reads, merges the hook entries into the existing matcher-group structure, and writes back, so pre-existing hooks and settings survive.
+- Never uses an HTTP-based hook — those are fail-open on network error, which silently disables enforcement under packet loss. The evaluator is always a local `command`-type script.
+- Never defaults to `enforcement: block` — `audit` is the default, `block` is an explicit opt-in after the team has run `audit` long enough to trust it.
+- Never claims unconditional fail-closed enforcement: a Copilot hook timeout and a Claude Code crash/timeout both default to *allow*. The merge-time check exists specifically to catch what leaks through that gap.
+- Never logs denials via `postToolUse` — a denied call never runs, so nothing "completed"; the audit line is written synchronously inside the `preToolUse` invocation that decided.
+- Never treats `denied_commands` as a security boundary — matching is word-tokenized prefix matching, a deterrent against unintentional dangerous commands, with the known bypasses documented and pinned by tests.
+
+**Example prompts:**
+```
+/platform-skills:ai-governance stop AI agents from editing our workflow files
+/platform-skills:ai-governance we're rolling this out org-wide — start in audit mode
+/platform-skills:ai-governance which repos in our org have adopted this, and at what tier?
+/platform-skills:ai-governance would this policy have blocked yesterday's PR?
+/platform-skills:ai-governance why did the Claude Code hook not fire on that edit?
+```
+
+---
+
+## `/platform-skills:token-optimizer`
+
+**What it does:** Routes broad repository discovery to a cheaper worker model via subagent delegation where the client supports it. Classifies requested read size (line count and byte count against absolute gates) and emits pass, audit log entry, or denial.
+
+Covers eight modes: `inspect` detects installed clients and reports versions, agents, and hooks; `setup` installs the core script, writes `.token-optimizer.yaml`, registers PreToolUse hooks, and creates state directories; `doctor` reports four separate states (delegation, model, redirection, read limit) and never collapses them; `explain` dry-runs classification for a file path or JSON payload; `benchmark` records and aggregates what the client exposes, and `report` aggregates the decision log (reconciliation is against the provider's billing); `disable` and `remove` reverse the config.
+
+```
+/platform-skills:token-optimizer
+/platform-skills:token-optimizer inspect
+/platform-skills:token-optimizer setup
+/platform-skills:token-optimizer doctor
+/platform-skills:token-optimizer explain --path=references/aws-waf.md
+/platform-skills:token-optimizer benchmark all
+/platform-skills:token-optimizer report
+/platform-skills:token-optimizer disable
+/platform-skills:token-optimizer remove
+```
+
+**Modes:**
+
+| Mode | What it does |
+|------|-------------|
+| `inspect` | Detect installed clients (Claude, Copilot CLI, Copilot VS Code), report versions, existing agents, hooks, and coexistence notes |
+| `setup` | Install core script, write `.token-optimizer.yaml` with 18 config keys, copy agent templates to chosen scope, register PreToolUse hooks, create state directories |
+| `doctor` | Four-state report: delegation verified/unverified, resolved worker model, redirection on/off/unsupported, read limit. Never one green line |
+| `explain` | Dry-run size classification for a file path or JSON payload, show which rule fires and effective mode |
+| `benchmark` | Run fixture suites in isolated arms (baseline, concise, delegated, native) with declared cache state, append JSONL |
+| `report` | Aggregate decision log into summary table with measured/estimated/unavailable visually distinct |
+| `disable` | Set `enabled: false` in config, deactivate owned routing-instruction blocks by marker |
+| `remove` | Delete only assets with ownership marker AND matching shipped content hash, print edited assets for review |
+
+**Client support:**
+
+- **Claude Code** — redirection architecturally possible (`agent_type` documented on `PreToolUse`), but probe ships un-run so `doctor` reports `no (runtime fixture required)` on fresh install
+- **GitHub Copilot CLI** — delegation unverified, redirection unsupported (documented `preToolUse` payload carries no per-call worker identity), capped to audit-only
+- **GitHub Copilot VS Code** — delegation unverified, redirection conditional (agent-scoped hooks preview, gated on `chat.useCustomAgentHooks`), capped to audit
+
+**Notes:**
+
+- No client's delegation is verified in this repository. The probe ships un-run (`delegation_verified: false`, `client_version: null`).
+- `handoffs` is not confirmed to be a subagent dispatch. `copilot help commands` lists `/fleet` and `/tasks` as subagent execution; `/agent` is "browse and select", a session transition.
+- No cost claim for any client. Benchmark harness ships runnable; acceptance targets are goals, not measured outcomes.
+- Fails open on every error path. Pass emits nothing (never `permissionDecision: "allow"`). Bounded recovery: at most one denial per target per session.
+
+**Example prompts:**
+```
+/platform-skills:token-optimizer what clients do I have, and can I use this here?
+/platform-skills:token-optimizer set up token optimization for this repo
+/platform-skills:token-optimizer is delegation actually working?
+/platform-skills:token-optimizer would reading aws-waf.md be delegated?
+/platform-skills:token-optimizer run benchmarks and show me the results
+/platform-skills:token-optimizer turn off delegation but keep the config
 ```
 
 ---
@@ -1751,31 +1968,92 @@ Reference: `references/pr-review.md`
 
 ## `/platform-skills:triage`
 
-Triage a PR review or issue comment from a bot, CI tool, or human reviewer. The command fetches the comment and diff with `gh`, classifies the thread, applies a minimal fix when the feedback is valid, replies, and resolves the review thread.
+Triage a PR review or issue comment from a bot, CI tool, or human reviewer. Every Git and GitHub mechanic runs through `examples/triage/scripts/triage_helper.py` (identity checks, one paginated thread snapshot, per-file diff evidence, isolated-worktree edit, push, reply, resolve, local run lock and state record) instead of hand-rolled `gh`/`jq` pipelines. The command classifies the finding, applies a justified fix inside a disposable worktree, publishes it only after a validation command reports PASS, replies on the thread, and resolves the thread only when that specific finding is eligible for closure.
 
 **Modes**
 
 | Mode | What it does |
 |---|---|
-| `<PR number> <comment ID>` | Triage one specific comment |
-| `--all <PR number>` | Triage every unresolved review thread on the PR |
+| `<PR number> <comment ID>` | Triage one specific review comment or PR conversation comment |
+| `--all <PR number>` | Triage every unresolved review thread captured in one pinned snapshot |
+| `--dry-run` | Read-only investigation. Prints the plan. Zero mutations, local or remote |
+| `--no-resolve` | Runs the full authorized fix/reply workflow but never resolves a thread |
+| `--repo OWNER/REPO` | Overrides repo auto-detection. Valid on either invocation form |
 
 **Usage**
 
 ```
 /platform-skills:triage 42 123456789
 /platform-skills:triage --all 42
+/platform-skills:triage --all 42 --dry-run
+/platform-skills:triage 42 123456789 --no-resolve --repo acme/widgets
 ```
 
 **Classifications**
 
 | Classification | Meaning |
 |---|---|
-| `ACTIONABLE_FIX` | Real issue in the changed files; apply the minimal fix, reply, and resolve |
-| `INFORMATIONAL` | Question or non-blocking suggestion; answer, reply, and resolve |
-| `NOT_APPLICABLE` | Status message, duplicate, already fixed, or outside this PR; explain and resolve |
+| `ACTIONABLE_FIX` | Demonstrable defect or policy violation inside this PR's authorized scope, with a justified remediation |
+| `ALREADY_FIXED` | Current head and change/test evidence show the original concern is already addressed |
+| `INFORMATIONAL` | Question, explanation, or pure status notification with no established defect |
+| `NOT_APPLICABLE` | Positive evidence disproves the finding's premise in this context |
+| `NEEDS_CLARIFICATION` | Intent, correctness, or required configuration cannot be established from available evidence |
+| `OUT_OF_SCOPE` | Potentially valid issue whose remediation sits outside this authorized change |
+| `DUPLICATE` | Another identified finding addresses the same underlying concern |
 
-Reference: `commands/triage.md` and `examples/triage/README.md`
+**Resolution is eligibility-gated, not automatic**
+
+| Classification | Eligible to close a thread? |
+|---|---|
+| `ACTIONABLE_FIX` | Only after remediation is validated, published, and confirmed live |
+| `ALREADY_FIXED` | Only with current-head evidence |
+| `DUPLICATE` | Only once the canonical concern is verified addressed and linked |
+| `INFORMATIONAL`, `NEEDS_CLARIFICATION`, `OUT_OF_SCOPE`, disputed `NOT_APPLICABLE` | No — reply and leave the thread open |
+
+A mixed thread stays open while any substantive concern remains, and a PR conversation comment has no thread to resolve at all. Classification, fix execution state, and discussion state are reported as three separate facts, so "fixed, pushed, thread open pending CI" is a complete outcome rather than a partial failure.
+
+Reference: `skills/triage/SKILL.md` (router), `references/triage.md` (evidence rules, helper contract, failure recovery), and `examples/triage/README.md`
+
+---
+
+## `/platform-skills:gateway-api`
+
+**What it does:** Moves ingress traffic off the retired ingress-nginx controller (best-effort maintenance ended March 2026: no releases, bug fixes or security fixes) onto Kubernetes Gateway API without a user-visible change. Envoy Gateway is the default implementation. The command inventories annotations and classifies each as auto, decision, or blocked, converts with ingress2gateway, rewrites the output for a platform-owned shared Gateway, and plans a parallel-run DNS cutover that keeps a one-step rollback until the old path is provably unused.
+
+**Modes**
+
+| Mode | What it does |
+|---|---|
+| `assess` | Inventory Ingresses, classes, annotations and controller ConfigMap settings; flag what will not translate |
+| `convert` | ingress2gateway v1.2.0 per namespace, then shared-Gateway rewrite and kubeconform validation |
+| `scaffold` | Standard-channel CRDs with `keep`, controller, GatewayClass, shared Gateway, cert-manager, Flux layers |
+| `cutover` | Per-hostname shadow test, TTL plan, soak criteria and decommission gate |
+| `debug` | Route, listener, certificate and Gateway address problems by condition reason |
+| `review` | Correctness, security, operational safety and portability review |
+| `rollback` | The rollback for the stage reached |
+
+**Usage**
+
+```
+/platform-skills:gateway-api
+/platform-skills:gateway-api assess
+/platform-skills:gateway-api convert payments
+/platform-skills:gateway-api scaffold Flux, Envoy Gateway, cert-manager HTTP-01
+/platform-skills:gateway-api cutover payments.example.com
+/platform-skills:gateway-api debug my HTTPRoute shows NotAllowedByListeners
+/platform-skills:gateway-api review
+/platform-skills:gateway-api rollback
+```
+
+**Example prompts**
+
+```
+/platform-skills:gateway-api we run ingress-nginx in production with configuration-snippet on a dozen Ingresses. What blocks a migration?
+/platform-skills:gateway-api convert the payments namespace and point every route at our shared platform-gateway
+/platform-skills:gateway-api why does cert-manager not create a certificate for my Gateway listener?
+```
+
+Reference: `skills/gateway-api/SKILL.md`, `references/gateway-api.md`, `examples/gateway-api/README.md`, and the full layout in `examples/fluxcd/basic-monorepo`
 
 ---
 
@@ -1842,7 +2120,7 @@ The debug mode works through this checklist in order:
 - Never overlap Cron windows
 - Set `restoreToOriginalReplicaCount: true`
 
-Reference: `commands/keda.md`, `references/keda.md`, and `examples/keda/`
+Reference: `skills/keda/SKILL.md`, `references/keda.md`, and `examples/keda/`
 
 ---
 
@@ -1904,7 +2182,152 @@ When invoked with no arguments, the command asks two questions before proceeding
 - OCI chart only (`oci://public.ecr.aws/karpenter/karpenter`) — `charts.karpenter.sh` is deprecated and unmaintained
 - CA and Karpenter must not coexist on the same nodes — scale CA to 0 before Karpenter takes over
 
-Reference: `commands/karpenter.md`, `references/karpenter.md`, and `examples/karpenter/`
+Reference: `skills/karpenter/SKILL.md`, `references/karpenter.md`, and `examples/karpenter/`
+
+---
+
+## `/platform-skills:cluster-upgrade`
+
+**What it does:** Plans a Kubernetes minor-version upgrade one phase at a time (removed APIs, add-ons, control plane, nodes) and states the validation and rollback for each phase before anything changes. It scans three places removed APIs hide (Git, rendered Helm charts, the live cluster) with pluto and EKS upgrade insights, checks add-on compatibility against the target version, finds PodDisruptionBudgets that will stall a drain, and picks the right rollback: EKS one-step version rollback within 7 days of an in-place upgrade, a node pool or add-on rollback, or a blue/green cluster. The command produces commands for you to run; it never runs an upgrade or a drain itself.
+
+**Modes**
+
+| Mode | What it does |
+|---|---|
+| `plan` | Full phased plan with blast radius, validation and rollback per phase |
+| `scan` | Removed and deprecated APIs in Git, rendered Helm, deployed releases and the live API, plus EKS upgrade insights |
+| `addons` | Add-on compatibility for the target version and whether each upgrades before or after the control plane |
+| `drain` | PDBs and pods that block a drain or lose data in one, with fixes |
+| `rotate` | Node rotation per pool type, smallest blast radius first |
+| `rollback` | The rollback for what failed and how long ago: EKS version rollback, node pool, add-on, or blue/green |
+| `validate` | Post-phase checks |
+
+**Usage**
+
+```
+/platform-skills:cluster-upgrade
+/platform-skills:cluster-upgrade plan prod-eks 1.33 to 1.34
+/platform-skills:cluster-upgrade scan 1.34
+/platform-skills:cluster-upgrade addons 1.34
+/platform-skills:cluster-upgrade drain
+/platform-skills:cluster-upgrade rollback
+```
+
+**Example prompts**
+
+```
+/platform-skills:cluster-upgrade what breaks if we upgrade prod-eks from 1.33 to 1.34? We use Flux, Karpenter and KEDA
+/platform-skills:cluster-upgrade the node group upgrade is stuck draining ip-10-0-12-34
+/platform-skills:cluster-upgrade we upgraded the control plane two days ago and CoreDNS is failing. Can we roll back?
+```
+
+Reference: `skills/cluster-upgrade/SKILL.md` and `references/cluster-upgrade.md`
+
+---
+
+## `/platform-skills:progressive-delivery`
+
+**What it does:** Adds canary releases with automatic promotion and rollback using Flagger on Flux. Flagger shifts traffic through Gateway API HTTPRoute weights (Envoy Gateway north-south, Linkerd east-west), gates each step on success rate and latency measured for the canary pods only, and rolls back on its own when the checks fail. Flagger installs from the signed OCI chart with cosign verification.
+
+**Modes**
+
+| Mode | What it does |
+|---|---|
+| `install` | Flagger via Flux from the signed OCI chart, with `meshProvider` and `metricsServer` set for your traffic and metrics |
+| `canary` | Canary and MetricTemplates for one app, adapted to its ports, hostname, listener and HPA |
+| `metrics` | Design or fix MetricTemplate queries so they measure the canary pods only, and prove they return data |
+| `debug` | Why a canary is stuck, never starts, or always rolls back |
+| `rollback` | Automatic rollback, a revert in Git, `skipAnalysis`, or `suspend`, depending on the situation |
+
+**Usage**
+
+```
+/platform-skills:progressive-delivery
+/platform-skills:progressive-delivery install Envoy Gateway, Prometheus in monitoring
+/platform-skills:progressive-delivery canary podinfo
+/platform-skills:progressive-delivery debug podinfo
+/platform-skills:progressive-delivery rollback
+```
+
+**Example prompts**
+
+```
+/platform-skills:progressive-delivery add a canary to the checkout service behind our shared Gateway, 10% steps, roll back above 1% errors
+/platform-skills:progressive-delivery why does my canary roll back every time even though the new version is healthy?
+```
+
+Reference: `skills/progressive-delivery/SKILL.md`, `references/progressive-delivery.md`, and `examples/progressive-delivery/README.md`
+
+---
+
+## `/platform-skills:backup-dr`
+
+**What it does:** Backs up and restores Kubernetes workloads with Velero, and proves recovery works. It installs Velero on EKS via Flux with IRSA, an S3 backup location and EBS snapshots, derives schedules and retention from the recovery point objective, states what a backup does not contain, and runs restore drills that restore a namespace into an isolated copy and measure the recovery time.
+
+**Modes**
+
+| Mode | What it does |
+|---|---|
+| `install` | Velero via Flux with IRSA, the scoped IAM policy and a backup bucket protected from deletion |
+| `schedule` | Schedules and retention from the recovery point objective |
+| `drill` | Run and interpret `restore-drill.sh`; compare the measured time with the recovery time objective |
+| `restore` | Restore a namespace or specific resources, including into a different namespace |
+| `dr` | Recovery into a new cluster: Flux bootstrap first, read-only backup location, then application namespaces |
+| `debug` | Failed or partial backups and restores |
+
+**Usage**
+
+```
+/platform-skills:backup-dr
+/platform-skills:backup-dr install prod-eks eu-north-1
+/platform-skills:backup-dr schedule RPO 1h for payments, 24h for everything else
+/platform-skills:backup-dr drill payments
+/platform-skills:backup-dr restore payments
+/platform-skills:backup-dr dr
+```
+
+**Example prompts**
+
+```
+/platform-skills:backup-dr we have Velero but have never restored anything. How long would recovering the payments namespace take?
+/platform-skills:backup-dr someone deleted the orders namespace an hour ago, restore it from last night's backup
+```
+
+Reference: `skills/backup-dr/SKILL.md`, `references/backup-dr.md`, and `examples/backup-dr/README.md`
+
+---
+
+## `/platform-skills:finops`
+
+**What it does:** Makes the cost of platform changes visible before they merge and attributable after they run. It adds an Infracost monthly cost diff to Terraform pull requests, allocates in-cluster cost by namespace and label with OpenCost, and enforces required cost tags in four layers: provider `default_tags` with variable validation, a Conftest gate on the plan, the AWS Config `REQUIRED_TAGS` rule, and a Kyverno namespace-label policy. The required tag keys come from the plugin's `required_tag_keys` setting.
+
+**Modes**
+
+| Mode | What it does |
+|---|---|
+| `estimate` | Monthly cost difference of a Terraform change, and the Infracost PR workflow |
+| `allocate` | OpenCost via Flux, pointed at your Prometheus, with a per-cluster ID |
+| `tags` | The four-layer tag enforcement for your tag keys, Kyverno in Audit first |
+| `audit` | Untagged resources and unowned namespaces now, plus OpenCost's idle and unallocated cost |
+
+**Usage**
+
+```
+/platform-skills:finops
+/platform-skills:finops estimate terraform/network
+/platform-skills:finops allocate
+/platform-skills:finops tags owner,cost-center,environment
+/platform-skills:finops audit
+```
+
+**Example prompts**
+
+```
+/platform-skills:finops what will this PR cost per month?
+/platform-skills:finops enforce cost-center and owner tags on every AWS resource and every namespace without breaking existing deploys
+```
+
+Reference: `skills/finops/SKILL.md`, `references/finops.md`, and `examples/finops/README.md`
 
 ---
 
@@ -1955,7 +2378,7 @@ Reference: `commands/karpenter.md`, `references/karpenter.md`, and `examples/kar
 - VFM scoring: Velocity × Frequency × Magnitude determines promotion priority
 - ADL protocol: decide Adopt / Defer / Reject for each promotion candidate
 
-Reference: `commands/self-improve.md`, `references/agent-self-improve.md`, and `examples/agent-self-improve/`
+Reference: `skills/self-improve/SKILL.md`, `references/agent-self-improve.md`, and `examples/agent-self-improve/`
 
 ---
 
@@ -2230,7 +2653,7 @@ Reference: `references/awesome-docs.md` and `examples/awesome-docs/`
 /platform-skills:aws terraform — generate a CloudFront + S3 + WAF module for a static site
 ```
 
-Reference: `commands/aws.md`, `references/aws-cloudfront.md`, `references/aws-waf.md`, and `examples/aws/`
+Reference: `skills/aws/SKILL.md`, `references/aws-cloudfront.md`, `references/aws-waf.md`, and `examples/aws/`
 
 ---
 
@@ -2260,7 +2683,7 @@ Reference: `commands/aws.md`, `references/aws-cloudfront.md`, `references/aws-wa
 /platform-skills:composite-actions publish — set up semantic versioning and a release.yml workflow
 ```
 
-Reference: `commands/composite-actions.md`, `references/composite-actions.md`, and `examples/github-actions/composite-actions/`
+Reference: `skills/composite-actions/SKILL.md`, `references/composite-actions.md`, and `examples/github-actions/composite-actions/`
 
 ---
 
@@ -2295,7 +2718,7 @@ Reference: `commands/composite-actions.md`, `references/composite-actions.md`, a
 /platform-skills:fluxcd — review this Chart.yaml and values.yaml for security issues
 ```
 
-Reference: `commands/fluxcd.md`, `references/fluxcd.md`, `references/fluxcd-sources.md`, `references/fluxcd-operator.md`, and `examples/fluxcd/`
+Reference: `skills/fluxcd/SKILL.md`, `references/fluxcd.md`, `references/fluxcd-sources.md`, `references/fluxcd-operator.md`, and `examples/fluxcd/`
 
 ---
 
@@ -2483,6 +2906,6 @@ Scan a repo, interview the developer, generate multi-agent AI configs specific t
 | `add` | Add one agent without re-interview |
 | `review` | 6-dimension quality check including staleness, output as file/PR comment/chat |
 
-Every generated file: `<!-- generated by platform-skills -->` on line 1.
+Every generated file carries a managed-file marker, but not always on line 1: `<!-- generated by platform-skills -->` on line 1 for `AGENTS.md` and `.windsurfrules`, and `# generated by platform-skills` on line 2 — inside the frontmatter — for `.github/agents/*.agent.md` and `.cursor/rules/*.mdc`, so `---` stays at byte 0. The per-format rule in `references/setup-agents-schemas.md` → "Managed-file marker" is the single source of truth.
 AGENTS.md always includes `## How to invoke agents` so developers know how to use @mentions.
 Hand-authored AGENTS.md (no marker) never overwritten.

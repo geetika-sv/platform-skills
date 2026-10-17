@@ -7,6 +7,20 @@ description: "Use when troubleshooting, implementing, reviewing, or auditing pla
 
 Use this skill for hands-on help with Kubernetes, GitOps, cloud infrastructure, CI/CD, secrets management, service mesh, Linux administration, networking, and platform product thinking — whether you are a solo developer or part of a large platform team.
 
+## Organisation context
+
+Set once when the plugin is enabled (`/config` to change). Use these as defaults for examples and commands; anything the user says in the conversation wins.
+
+| Setting | Value |
+|---|---|
+| GitOps engine | `${user_config.gitops_engine}` |
+| Primary cloud | `${user_config.primary_cloud}` |
+| AWS CLI profile naming | `${user_config.aws_profile_convention}` |
+| Required tag keys | `${user_config.required_tag_keys}` |
+| GitHub organisation | `${user_config.github_org}` |
+
+A value that is empty, or still reads as an unsubstituted placeholder, is not configured (outside Claude Code, or never set): ask the user rather than assume.
+
 ## Pick the right tool for the job
 
 | Layer | When to use |
@@ -32,19 +46,26 @@ Use this skill for hands-on help with Kubernetes, GitOps, cloud infrastructure, 
 | `OPA / Conftest` | Rego policies, unit tests, fmt/regal/verify pipeline, debug |
 | `Kyverno` | CEL-based ValidatingPolicy, MutatingPolicy, ImageValidatingPolicy |
 | `PR Review` | Cost, drift, ownership, SOC 2, deprecated APIs, rollback feasibility |
-| `PR Triage` | Classify comments ACTIONABLE_FIX/INFORMATIONAL/NOT_APPLICABLE, fix, reply |
+| `PR Triage` | 7-way comment classification, isolated-worktree fix, reply, eligibility-gated resolve |
 | `KEDA` | ScaledObject/ScaledJob, all scalers, TriggerAuthentication, scale-to-zero |
+| `Gateway API` | Ingress via Gateway API (Envoy Gateway default), migration off retired ingress-nginx, cert-manager listener TLS — `/platform-skills:gateway-api` |
 | `Karpenter` | NodePool/EC2NodeClass design, Spot diversity, disruption strategy, capacity planning, audit, CA migration, v0→v1 upgrade |
+| `Cluster Upgrade` | Minor-version upgrades: removed-API scan, add-on order, drain blockers, node rotation, EKS version rollback — `/platform-skills:cluster-upgrade` |
+| `Progressive Delivery` | Flagger canaries on Gateway API (Envoy Gateway, Linkerd), metric-gated promotion, automatic and emergency rollback — `/platform-skills:progressive-delivery` |
+| `Backup / DR` | Velero on EKS with IRSA, schedules and retention, restore drills with measured recovery time, cross-cluster DR — `/platform-skills:backup-dr` |
+| `FinOps` | Infracost PR cost diff, cost-allocation tags enforced in four layers, OpenCost allocation — `/platform-skills:finops` |
 | `Agent Self-Improvement` | `.learnings/` workspace, LRN/ERR lifecycle, WAL, VFM, ADL |
 | `Supply Chain Security` | Cosign signing, Syft SBOM, Trivy/Grype CVE gates, SLSA Level 2 |
 | `Runtime Security` | Falco eBPF, custom rules, Falcosidekick routing, Kyverno enforcement |
 | `Awesome Docs` | Animated SVG Markdown — README, runbook, RFC, architecture, post-mortem |
 | `Composite Actions` | Full action repo scaffold, SHA pinning, secrets-as-inputs, actionlint |
+| `Zizmor` | Workflow and action security audit — template injection, credential persistence, unpinned `uses:`, over-broad permissions |
 | `GitOps debug` | 5-workflow structured debug → 5-section report with root cause |
 | `GitOps audit` | 6-phase repo audit → prioritized Critical/Warning/Info report |
 | `Platform Mindset` | DevEx, friction audits, RFC/ADR, incident communication, post-mortems |
 | `Renovate` | Dependency update automation — generate renovate.json from repo scan, emit GHA validation workflow |
 | `Setup Agents` | Scaffold multi-agent AI configs for any repo — interview-driven, specific to this codebase |
+| `Token Optimizer` | Route broad discovery to a cheap worker model via native subagents — `/platform-skills:token-optimizer` |
 
 If a task spans multiple areas, decide which layer owns the source of truth and keep the other layers consumers of that state.
 
@@ -106,6 +127,9 @@ Load only the files needed for the current request.
 | references/aws-waf.md | Web ACLs, managed rules, rate limiting, Firewall Manager |
 | references/github-actions.md | Reusable workflows, OIDC, delivery controls |
 | references/composite-actions.md | Composite action scaffold, SHA pinning, secrets-as-inputs, actionlint |
+| references/zizmor.md | Zizmor audit catalogue, personas, `zizmor.yml` policy, exit-code gating, auto-fix, SARIF, pre-commit |
+| references/kingfisher.md | Kingfisher bootstrap, scan/validate/revoke, baseline, `kingfisher.yaml`, platform targets, CI gate, pre-commit |
+| references/ai-governance.md | Policy schema, verified Copilot/Claude hook protocol, trusted-verifier self-disable design, denied_commands scoping |
 | references/secrets.md | External Secrets Operator, Sealed Secrets, secrets strategy |
 | references/linkerd.md | mTLS, observability, traffic management, multi-cluster |
 | references/linux-networking.md | DNS, load balancing, VPC/VNet, kernel tuning, connectivity |
@@ -123,8 +147,13 @@ Load only the files needed for the current request.
 | references/kyverno.md | ValidatingPolicy, MutatingPolicy, ImageValidatingPolicy, CEL, kyverno-cli |
 | references/pr-review.md | Cost, drift, ownership, compliance, deprecated APIs, rollback scoring |
 | references/keda.md | ScaledObject, ScaledJob, scalers, TriggerAuthentication, scale-to-zero |
+| references/gateway-api.md | ingress-nginx retirement, implementation choice, ownership model, CRD channel and `keep` policy, ingress2gateway annotation coverage, cert-manager, Flux layering, cutover, rollback |
 | references/karpenter.md | NodePool, EC2NodeClass, NodeClaim, IAM, Spot, disruption, private cluster, CA migration |
-| references/agent-self-improve.md | `.learnings/` workspace, WAL, VFM, ADL, status/migrate |
+| references/cluster-upgrade.md | Removed-API scan (pluto, EKS upgrade insights), add-on compatibility, drain blockers, node rotation, EKS version rollback limits, blue/green |
+| references/progressive-delivery.md | How a Flagger canary works, traffic providers (Gateway API, Linkerd), metrics, GitOps interplay, rollback, troubleshooting |
+| references/backup-dr.md | What Velero backs up and what it does not, configuration decisions, restore drills, DR to another cluster, rollback |
+| references/finops.md | Tag enforcement in four layers (Terraform, Conftest, AWS Config, Kyverno), Infracost on PRs, OpenCost allocation, rollback |
+| references/agent-self-improve.md | `.learnings/` workspace, entry metadata, lint and recall, WAL, VFM, ADL, status/migrate |
 | references/supply-chain.md | Cosign, Syft SBOM, Trivy/Grype, SLSA Level 2, ImageValidatingPolicy |
 | references/trivy.md | Trivy bootstrap, image/fs/repo/secrets/sbom/k8s modes, severity gating, Trivy Operator via Flux HelmRelease |
 | references/runtime-security.md | Falco eBPF, custom rules, Falcosidekick, Kyverno enforcement |
@@ -137,6 +166,7 @@ Load only the files needed for the current request.
 | references/setup-agents-review.md | Audit existing agent files for staleness, misalignment, missing sections |
 | references/setup-agents-schemas.md | Per-tool frontmatter schemas, managed-file markers, MCP wiring |
 | references/setup-agents-template.md | AGENTS.md template pointer and render.sh invocation |
+| references/token-optimizer.md | Config schema, verified client capability matrix, size classification, fail-open rationale, measurement |
 
 ## Slash Commands
 
@@ -165,10 +195,15 @@ For explicit, repeatable workflows use these commands:
 - `/platform-skills:opa` — generate Rego policies, write unit tests, run fmt/regal/verify pipeline, explain or debug policies
 - `/platform-skills:kyverno` — generate, test, audit, debug, or migrate Kyverno CEL-based admission policies
 - `/platform-skills:pr-review` — comprehensive PR review: cost, drift, ownership, compliance, upgrade, rollback
-- `/platform-skills:triage` — triage a PR comment (bot or human): classify as ACTIONABLE_FIX / INFORMATIONAL / NOT_APPLICABLE, produce the exact fix if needed, and write the thread reply
+- `/platform-skills:triage` — triage a PR comment (bot or human): classify as ACTIONABLE_FIX / ALREADY_FIXED / INFORMATIONAL / NOT_APPLICABLE / NEEDS_CLARIFICATION / OUT_OF_SCOPE / DUPLICATE, produce the exact fix if needed, write the thread reply, and resolve the thread only when that finding is eligible for closure
 - `/platform-skills:keda` — design, generate, debug, or review KEDA ScaledObject/ScaledJob autoscaling
+- `/platform-skills:gateway-api` — migrate off the retired ingress-nginx controller to Gateway API: assess annotations, convert with ingress2gateway, scaffold a shared Gateway with cert-manager TLS and Flux layering, plan a parallel-run DNS cutover, debug route attachment, or roll back
 - `/platform-skills:karpenter` — install, generate NodePool/EC2NodeClass, debug provisioning, plan capacity before rollout, audit scale history, migrate from Cluster Autoscaler, or upgrade (including v0→v1 CRD migration)
-- `/platform-skills:self-improve` — bootstrap global or project-local `.learnings/` workspace (`init global`/`init local`), log/review/promote learnings and errors, status overview, and migrate between scopes
+- `/platform-skills:cluster-upgrade` — plan, scan, run and roll back a Kubernetes minor-version upgrade: removed APIs in Git, rendered Helm and the live cluster, add-on order, drain blockers, node rotation per pool, and EKS one-step version rollback within 7 days or blue/green
+- `/platform-skills:progressive-delivery` — install Flagger with signed OCI charts, generate a Canary and MetricTemplates on Gateway API or Linkerd, debug a stuck or rolled-back canary, and roll back a release in an emergency
+- `/platform-skills:backup-dr` — install Velero with IRSA, design schedules and retention, run a timed restore drill into an isolated namespace, restore a deleted namespace, plan DR to another cluster, and debug a failed backup or restore
+- `/platform-skills:finops` — estimate a Terraform PR's monthly cost with Infracost, allocate in-cluster cost by namespace and label with OpenCost, enforce required cost tags in four layers, and audit tag coverage
+- `/platform-skills:self-improve` — bootstrap global or project-local `.learnings/` workspace (`init global`/`init local`), log/recall/review/promote/revoke learnings and errors with provenance, scope and expiry, status overview, and migrate between scopes
 - `/platform-skills:supply-chain` — sign images, generate and attest SBOMs, run CVE severity gates, enforce image signatures in Kubernetes, and generate SLSA Level 2 provenance
 - `/platform-skills:runtime-security` — deploy Falco with eBPF, write custom rules, route alerts, debug why a rule is not firing, and bridge Falco signals to Kyverno admission enforcement
 - `/platform-skills:chaos` — install Litmus Chaos or Chaos Mesh, generate fault experiments, schedule recurring chaos, run structured GameDay, debug stuck experiments, report results
@@ -177,10 +212,14 @@ For explicit, repeatable workflows use these commands:
 - `/platform-skills:aws` — CloudFront distributions, WAF web ACLs, Lambda@Edge, CloudFront Functions, Firewall Manager multi-account enforcement, and Terraform module generation with best practices
 - `/platform-skills:composite-actions` — generate a full composite action repo scaffold, review an existing action.yml, harden with SHA pinning and env isolation, or generate a test workflow
 - `/platform-skills:github-actions` — design reusable workflows and job graphs, review for OIDC/SHA pinning/token scoping, or debug failing CI workflows
+- `/platform-skills:zizmor` — audit workflows, composite actions, Dependabot and pre-commit configs with zizmor: interactive three-layer wizard routes intent → scope → trade-offs (including an explicit hash-pin vs ref-pin decision, SHA recommended), then scan, deep-audit, auto-fix, triage findings, generate `.github/zizmor.yml` policy, emit a SARIF or hard-fail CI gate, or add the pre-commit hook; complements actionlint (`/platform-skills:github-actions`) rather than replacing it
+- `/platform-skills:kingfisher` — find, live-validate, map the blast radius of, and revoke leaked secrets with Kingfisher across a repo, Git history, a GitHub/GitLab/Bitbucket org, S3/GCS, Docker images, Slack, Jira, Confluence, Teams, or Postman; scan, deep-audit, direct validate/revoke, baseline management, triage, `kingfisher.yaml` policy, CI gate, or pre-commit hook; complements the pattern-only secret scan in `/platform-skills:trivy`
 - `/platform-skills:kubernetes` — generate cluster baseline scaffolds, diagnose 401/403 RBAC errors, harden Deployment specs, or debug crashloop/OOMKill/pending pods
 - `/platform-skills:azure` — Workload Identity and OIDC federation, resource tagging with Azure Policy, AKS provisioning, RBAC scoping, and production-readiness review
 - `/platform-skills:openshift` — SCC diagnosis and minimum grants, Route TLS modes and 503 debug, OpenShift GitOps app delivery, and cluster upgrade validation
 - `/platform-skills:secrets` — design ESO vs Sealed Secrets strategy, scaffold SecretStore/ExternalSecret, seal and rotate secrets, run rotation runbooks, and audit Kubernetes-side secrets hygiene
 - `/platform-skills:renovate` — generate renovate.json for any repo, or emit a GHA workflow to validate it on PR
 - `/platform-skills:setup-agents` — scaffold multi-agent AI configs for any repo: ranked scan, interview-driven, generate/upgrade/add/review
+- `/platform-skills:ai-governance` — generate real-time session hooks (Copilot, Claude Code) and a merge-time backstop that gate AI-agent edits to protected paths and dangerous commands; `check` dry-runs policy changes, `audit` reports fleet-wide adoption via `gh api`, `explain` translates an existing policy to plain English
+- `/platform-skills:token-optimizer` — route broad repository discovery to a cheaper worker model using each client's native subagents; `inspect` detects clients and conflicts, `setup` writes a reviewable diff, `doctor` reports delegation, resolved model, redirection, and read limit as four separate states, `explain` dry-runs a classification, `benchmark` and `report` record and aggregate what the client exposes (reconciliation is against the provider's billing)
 - Working Flux CD examples: examples/fluxcd/

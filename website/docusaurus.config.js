@@ -1,11 +1,46 @@
 // @ts-check
 const { themes: prismThemes } = require('prism-react-renderer');
 
+// Single source of truth for the version shown on the site. Derived from the
+// plugin manifest rather than hardcoded, because a hardcoded string in
+// src/pages/index.tsx sat at v1.38.0 through the 1.39.0, 1.40.0 and 1.41.0
+// releases — no release gate covered website/, so nothing caught it. Reading it
+// here means the homepage cannot go stale again.
+const pluginManifest = require('../.claude-plugin/plugin.json');
+
+// Command count derived the same way and for the same reason: the homepage
+// advertised "41 commands" while the repo carried 44, because it was a literal
+// nobody updated on release.
+const fs = require('fs');
+const path = require('path');
+
+// Each domain is a skill at skills/<name>/SKILL.md (skills/platform-skills is the
+// router, not a command page). Docusaurus would give skills/<name>/SKILL.md the
+// doc id "<name>/SKILL", so copy each skill to .generated/commands/<name>.md:
+// the site keeps its /commands/<name> URLs and sidebar ids unchanged.
+const skillsDir = path.join(__dirname, '..', 'skills');
+const commandNames = fs
+  .readdirSync(skillsDir)
+  .filter((d) => d !== 'platform-skills' && fs.existsSync(path.join(skillsDir, d, 'SKILL.md')))
+  .sort();
+const generatedCommandsDir = path.join(__dirname, '.generated', 'commands');
+fs.rmSync(generatedCommandsDir, { recursive: true, force: true });
+fs.mkdirSync(generatedCommandsDir, { recursive: true });
+for (const name of commandNames) {
+  fs.copyFileSync(path.join(skillsDir, name, 'SKILL.md'), path.join(generatedCommandsDir, `${name}.md`));
+}
+const commandCount = commandNames.length;
+
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'Platform Skills',
   tagline: 'A production-grade field handbook for platform engineers',
   favicon: 'img/favicon.ico',
+
+  customFields: {
+    pluginVersion: pluginManifest.version,
+    commandCount,
+  },
 
   url: 'https://nitinjain999.github.io',
   baseUrl: '/platform-skills/',
@@ -14,16 +49,16 @@ const config = {
   projectName: 'platform-skills',
   trailingSlash: false,
 
-  // Cross-plugin refs (commands/ → references/) and examples/ paths are intentional
+  // Cross-plugin refs (skills/ → references/) and examples/ paths are intentional
   // agent-skill cross-references for the CLI — not web links. Ignore at build time.
   onBrokenLinks: 'ignore',
 
   markdown: {
     // Process .md files as CommonMark (not MDX) — tolerates raw HTML tags and
-    // angle-bracket constructs present in the existing references/ and commands/ files.
+    // angle-bracket constructs present in the existing references/ and skills/ files.
     format: 'detect',
     hooks: {
-      // Cross-plugin refs (commands/ → references/) and examples/ links are
+      // Cross-plugin refs (skills/ → references/) and examples/ links are
       // agent-skill cross-references, not web links — suppress broken-link noise.
       onBrokenMarkdownLinks: 'ignore',
     },
@@ -64,7 +99,7 @@ const config = {
       '@docusaurus/plugin-content-docs',
       {
         id: 'commands',
-        path: '../commands',
+        path: './.generated/commands',
         routeBasePath: 'commands',
         sidebarPath: require.resolve('./sidebars-commands.js'),
         sidebarCollapsible: true,

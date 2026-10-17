@@ -6,16 +6,22 @@ on:
     paths:
       - 'website/**'
       - 'references/**'
-      - 'commands/**'
+      - 'skills/**'
       - 'examples/**'
       - 'README.md'
       - 'CHANGELOG.md'
+      # The site derives its displayed version from this manifest, so a
+      # manifest-only bump must rebuild. Without it, a release that touches only
+      # .claude-plugin/ skips this workflow and the deployed homepage keeps
+      # showing the previous version — which is the drift the derivation was
+      # added to stop.
+      - '.claude-plugin/**'
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+# Deny by default; each job grants only what it needs. Granting pages: write and
+# id-token: write at the workflow level handed them to the build job too, which
+# only reads the repo — and that job is the one that runs third-party npm code.
+permissions: {}
 
 concurrency:
   group: pages
@@ -25,12 +31,14 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read        # checkout only; the artifact upload needs nothing more
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Setup Node
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: '24'
           cache: npm
@@ -53,10 +61,13 @@ jobs:
     name: Deploy
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write          # publish the Pages deployment
+      id-token: write       # OIDC token deploy-pages exchanges for the upload
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128  # v5.0.0
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1

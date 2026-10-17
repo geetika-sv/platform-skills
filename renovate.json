@@ -34,11 +34,11 @@
       "schedule": ["before 6am on monday"]
     },
     {
-      "description": "Terraform providers - automerge minor/patch",
+      "description": "Terraform providers - minor/patch, merged by renovate-gate",
       "matchManagers": ["terraform"],
       "matchDepTypes": ["required_provider"],
       "groupName": "Terraform providers",
-      "automerge": true,
+      "automerge": false,
       "automergeType": "pr",
       "minimumReleaseAge": "3 days",
       "matchUpdateTypes": ["minor", "patch"]
@@ -51,9 +51,9 @@
       "groupName": "Terraform modules"
     },
     {
-      "description": "Helm charts - automerge patch only",
+      "description": "Helm charts - patch only, merged by renovate-gate",
       "matchManagers": ["helmv3"],
-      "automerge": true,
+      "automerge": false,
       "automergeType": "pr",
       "minimumReleaseAge": "3 days",
       "matchUpdateTypes": ["patch"]
@@ -65,37 +65,42 @@
       "groupName": "Container images"
     },
     {
-      "description": "Stable patch updates - automerge",
+      "description": "Stable patch updates - merged by renovate-gate",
       "matchManagers": ["terraform", "helmv3", "kubernetes", "docker-compose"],
       "matchUpdateTypes": ["patch"],
       "matchCurrentVersion": "!/^0/",
-      "labels": ["dependencies"],
-      "automerge": true,
+      "automerge": false,
       "minimumReleaseAge": "3 days",
       "automergeType": "pr"
     },
     {
-      "description": "Go modules — automerge minor/patch",
+      "description": "Go modules — minor/patch, merged by renovate-gate",
       "matchManagers": ["gomod"],
-      "automerge": true,
+      "automerge": false,
       "automergeType": "pr",
       "minimumReleaseAge": "3 days",
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "Go modules"
     },
     {
-      "description": "npm packages — automerge minor/patch",
+      "description": "npm packages — minor/patch, merged by renovate-gate",
       "matchManagers": ["npm"],
-      "automerge": true,
+      "automerge": false,
       "automergeType": "pr",
       "minimumReleaseAge": "3 days",
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "npm packages"
     },
     {
-      "description": "Python packages — automerge minor/patch",
+      "description": "Hold TypeScript on 6.x. TypeScript 7 removed the 'baseUrl' compiler option, and @docusaurus/tsconfig 3.10.x still sets it, so 'npm run typecheck' fails with TS5102 on any 7.x. The option is inherited from the package, so it cannot be overridden locally. Lift this cap once Docusaurus ships a tsconfig without baseUrl.",
+      "matchDatasources": ["npm"],
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7"
+    },
+    {
+      "description": "Python packages — minor/patch, merged by renovate-gate",
       "matchManagers": ["pip_requirements", "pip-compile", "pipenv", "poetry"],
-      "automerge": true,
+      "automerge": false,
       "automergeType": "pr",
       "minimumReleaseAge": "3 days",
       "matchUpdateTypes": ["minor", "patch"],
@@ -135,6 +140,7 @@
     "**/node_modules/**",
     "**/vendor/**",
     "**/.terraform/**",
-    "**/charts/**"
+    "**/charts/**",
+    ".github/workflows/*.lock.yml"
   ]
 }

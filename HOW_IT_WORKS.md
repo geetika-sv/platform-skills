@@ -33,7 +33,7 @@ When you install `platform-skills`, the agent gets access to:
 | `agents/openai.yaml` | Codex UI metadata and default prompt |
 | `references/*.md` | Deep-dive guides loaded on demand when relevant to the question |
 | `examples/` | Working code the agent can point to or adapt |
-| `commands/*.md` | Claude slash command definitions — predefined prompt templates for repeatable workflows |
+| `skills/<name>/SKILL.md` | One skill per domain. Each runs as `/platform-skills:<name>` and Claude can also load it on its own when its description matches the task. `skills/platform-skills/` is the cross-domain router |
 | `.cursorrules` and `.cursor/rules/*.mdc` | Cursor project and scoped file rules |
 
 ### When a Skill Activates
@@ -94,6 +94,10 @@ Slash commands are predefined Claude workflows. In Codex or Cursor, ask for the 
 | `/platform-skills:terraform` | You want the full fmt/validate/tflint/security pipeline run against your Terraform |
 | `/platform-skills:checkov` | You want to bootstrap Checkov, run static or plan-level scanning, generate pre-commit hooks, or fix IaC security violations |
 | `/platform-skills:trivy` | You want to scan a container image, filesystem, repo, or SBOM for CVEs, or deploy the Trivy Operator for continuous cluster monitoring |
+| `/platform-skills:zizmor` | You want to audit GitHub Actions workflows for template injection, unpinned `uses:`, or over-broad permissions — then auto-fix, triage, write a `zizmor.yml` policy, or add a CI gate |
+| `/platform-skills:kingfisher` | You want to find a leaked secret, confirm it's still live, map what it can reach, or revoke it — in a repo, Git history, a GitHub org, S3, Slack, or Jira |
+| `/platform-skills:ai-governance` | You want to stop AI coding agents (Copilot, Claude Code) from editing protected paths or running dangerous commands — session hooks plus a merge-time backstop, dry-run a policy change, or report org-wide adoption |
+| `/platform-skills:token-optimizer` | You want to route broad repository discovery to a cheaper worker model using each client's native subagents — detect clients, write configs, report delegation and redirection state per client, and run your own cost benchmark |
 | `/platform-skills:debug` | You have a platform symptom and want structured diagnosis |
 | `/platform-skills:gitops debug` | Flux or Argo CD live cluster issue — structured 5-workflow debug |
 | `/platform-skills:gitops audit` | Audit a Flux CD GitOps repo — 6-phase analysis, Critical/Warning/Info report |
@@ -113,9 +117,14 @@ Slash commands are predefined Claude workflows. In Codex or Cursor, ask for the 
 | `/platform-skills:opa` | Generate Rego policies, write unit tests, run fmt/regal/verify pipeline, explain or debug |
 | `/platform-skills:kyverno` | Generate, test, audit, debug, or migrate Kyverno admission policies |
 | `/platform-skills:pr-review` | Comprehensive PR review: cost, drift, ownership, compliance, upgrade, rollback |
-| `/platform-skills:triage` | Triage a PR comment, fix valid findings, reply, and resolve the thread |
+| `/platform-skills:triage` | Triage a PR comment, fix and publish valid findings, reply with evidence, and resolve the thread only when that finding is eligible for closure |
 | `/platform-skills:keda` | KEDA ScaledObject/ScaledJob — generate, debug, review, or design a scaling strategy |
+| `/platform-skills:gateway-api` | You run ingress-nginx and need to move to Gateway API, or a Gateway, HTTPRoute or listener certificate is not working |
 | `/platform-skills:karpenter` | Karpenter NodePool/EC2NodeClass — generate, debug, review, audit scale history, plan capacity, migrate from CA, upgrade |
+| `/platform-skills:cluster-upgrade` | Plan, scan, run or roll back a Kubernetes minor-version upgrade, including EKS one-step version rollback |
+| `/platform-skills:progressive-delivery` | Add Flagger canaries with metric-gated promotion and automatic rollback, or debug a canary that will not promote |
+| `/platform-skills:backup-dr` | Install Velero, design schedules, run a timed restore drill, restore a namespace, or plan DR to another cluster |
+| `/platform-skills:finops` | Estimate a Terraform PR's cost, allocate in-cluster cost with OpenCost, or enforce cost-allocation tags |
 | `/platform-skills:setup-agents` | Scaffold multi-agent AI setup — generate, upgrade, add, review |
 | `/platform-skills:self-improve` | Bootstrap `.learnings/` workspace, log errors/learnings, resume after interruption, review patterns, promote to project memory |
 | `/platform-skills:supply-chain` | Sign images, generate SBOMs, run CVE gates, enforce image signatures, generate SLSA provenance |
@@ -417,7 +426,7 @@ Informational:
 You: /platform-skills:pr-review compliance [paste diff]
 
 Claude:
-  1. Reads commands/pr-review.md → loads compliance mode definition
+  1. Reads skills/pr-review/SKILL.md → loads compliance mode definition
   2. Reads references/pr-review.md → loads SOC 2 control mapping table
   3. Reads references/compliance.md → loads Terraform patterns and evidence commands
   4. Parses the diff — identifies IAM, RDS, S3, and network resource changes
