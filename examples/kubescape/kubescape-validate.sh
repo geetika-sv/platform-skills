@@ -118,6 +118,64 @@ if [ -f "$WORKFLOW" ]; then
   else
     fail "actions/checkout must set persist-credentials: false"
   fi
+
+  # A required check must start on every PR: a workflow skipped by a paths
+  # filter leaves the required check pending and blocks the merge.
+  # (PyYAML reads the bare key `on` as boolean True.)
+  if python3 -I - "$WORKFLOW" <<'PY'
+import sys, yaml
+doc = yaml.safe_load(open(sys.argv[1]))
+on = doc.get("on", doc.get(True, {})) or {}
+pr = on.get("pull_request") if isinstance(on, dict) else None
+sys.exit(1 if isinstance(pr, dict) and ("paths" in pr or "paths-ignore" in pr) else 0)
+PY
+  then
+    pass "pull_request trigger has no paths filter (required check always reports)"
+  else
+    fail "pull_request must not use paths/paths-ignore: a skipped required check blocks merges"
+  fi
+
+  # Inline kubescape.io/skip-controls annotations are honoured by default on
+  # local files and would let a PR suppress its own finding without review.
+  scans="$(grep -cE '^[[:space:]]*kubescape scan ' "$WORKFLOW" || true)"
+  hardened="$(grep -A3 -E '^[[:space:]]*kubescape scan ' "$WORKFLOW" | grep -c -- '--honor-inline-exceptions=false' || true)"
+  if [ "$scans" -gt 0 ] && [ "$scans" = "$hardened" ]; then
+    pass "all $scans kubescape scans pass --honor-inline-exceptions=false"
+  else
+    fail "every kubescape scan must pass --honor-inline-exceptions=false ($hardened of $scans do)"
+  fi
+
+  if grep -q 'helm dependency build' "$WORKFLOW"; then
+    pass "Helm chart dependencies are built (and fail loudly) before scanning"
+  else
+    fail "workflow must run 'helm dependency build' for charts under SCAN_PATH; kubescape only warns when its own build fails"
+  fi
+
+  # Behaviour test of the exception-policy step against crafted files.
+  step="$(python3 -I -c '
+import sys, yaml
+doc = yaml.safe_load(open(sys.argv[1]))
+for s in doc["jobs"]["posture"]["steps"]:
+    if s.get("name") == "Check exception policy":
+        print(s["run"]); break' "$WORKFLOW")"
+  if [ -z "$step" ]; then
+    fail "workflow needs a 'Check exception policy' step"
+  elif grep -q "hashFiles('.kubescape" "$WORKFLOW"; then
+    fail "exception check must use \$EXCEPTIONS, not a hard-coded hashFiles() path"
+  else
+    tmpx="$(mktemp -d)"
+    mk() { printf '[{"name":"%s","policyType":"postureExceptionPolicy","actions":["%s"],"resources":[{"designatorType":"Attributes","attributes":{"kind":".*"}}],"posturePolicies":[{"controlID":"C-0030"}]}]' "$1" "$2" > "$tmpx/$3.json"; }
+    mk "accepted-until-2999-12-31" disable valid
+    mk "accepted-until-2000-01-01" disable expired
+    mk "accepted-without-a-date" disable undated
+    mk "known-issue-kept-visible" alertOnly alertonly
+    for c in valid:0 alertonly:0 expired:1 undated:1 missing:0; do
+      f="${c%%:*}"; want="${c##*:}"
+      if EXCEPTIONS="$tmpx/$f.json" bash -c "$step" >/dev/null 2>&1; then got=0; else got=1; fi
+      if [ "$got" = "$want" ]; then pass "exception policy: $f → exit $got"; else fail "exception policy: $f → exit $got, want $want"; fi
+    done
+    rm -rf "$tmpx"
+  fi
 fi
 
 echo ""

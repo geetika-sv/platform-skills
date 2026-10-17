@@ -130,7 +130,7 @@ One line of "why it matters" per control when the user is new to it (for example
 ## Mode: scan
 
 1. Resolve the target: a path, a chart (`Chart.yaml`), an overlay (`kustomization.yaml`), a git URL, or `-` for stdin.
-2. Helm: confirm dependencies are vendored (`charts/` present when `Chart.yaml` lists `dependencies`); if not, `helm dependency build` first. Pass `--kube-version` from the target cluster when known.
+2. Helm: when `Chart.yaml` lists `dependencies`, build them first and stop on errors (`helm repo add` each `https://` repository, then `helm dependency build`). Kubescape tries itself but only warns on failure and then scans without the subcharts. Pass `--kube-version` from the target cluster when known.
 3. Run:
 
 ```bash
@@ -162,7 +162,7 @@ kubescape scan framework <framework> --kube-contexts prod-eu,prod-us --fleet-rep
 5. Tell the user to make `posture` a required check.
 6. Run `zizmor` on the new workflow if available (`/platform-skills:zizmor`).
 
-Never: `kubescape/github-action` (bundles CLI v3.0.21), `tj-actions/changed-files`, unpinned `uses:`, or a gate without `--controls-version`.
+Never: `kubescape/github-action` (bundles CLI v3.0.21), `tj-actions/changed-files`, unpinned `uses:`, a gate without `--controls-version`, a scan without `--honor-inline-exceptions=false` (a PR could suppress its own finding with a `kubescape.io/skip-controls` annotation), or a `paths` filter on the `pull_request` trigger of a required check (it would stay pending and block merges).
 
 ## Mode: exceptions
 

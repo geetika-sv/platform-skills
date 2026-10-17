@@ -15,12 +15,10 @@
 name: kubescape
 
 on:
+  # No paths filter on pull_request: `posture` is meant to be a required check,
+  # and a workflow skipped by a paths filter leaves a required check pending,
+  # which blocks the merge. A PR that changes no manifests scans in about a minute.
   pull_request:
-    paths:
-      - "k8s/**"
-      - "charts/**"
-      - ".kubescape/**"
-      - ".github/workflows/kubescape.yml"
   push:
     branches: [main]
     paths:
@@ -81,33 +79,73 @@ jobs:
           echo "$RUNNER_TEMP/kubescape" >> "$GITHUB_PATH"
           ./kubescape version
 
-      - name: Fail on expired exceptions
-        if: hashFiles('.kubescape/exceptions.json') != ''
+      - name: Check exception policy
         run: |
           set -euo pipefail
-          # Convention: a disable exception ends in -until-YYYY-MM-DD.
+          # Uses $EXCEPTIONS itself, so a non-default path is checked too.
+          [ -f "$EXCEPTIONS" ] || { echo "no exceptions file at $EXCEPTIONS"; exit 0; }
+          # Convention: every "disable" exception (an accepted risk; it removes
+          # the finding from the score and the gate) ends in -until-YYYY-MM-DD.
+          # Undated ones would suppress forever, so they fail like expired ones.
           today="$(date -u +%F)"
-          expired="$(jq -r --arg today "$today" '
+          bad="$(jq -r --arg today "$today" '
             .[] | select(.actions == ["disable"])
-                | select((.name | capture("until-(?<d>[0-9]{4}-[0-9]{2}-[0-9]{2})$").d // "9999-12-31") < $today)
-                | .name' "$EXCEPTIONS")"
-          if [ -n "$expired" ]; then
-            echo "::error::Expired Kubescape exceptions — renew with a reason or fix the finding:"
-            echo "$expired"
+                | (.name | capture("until-(?<d>[0-9]{4}-[0-9]{2}-[0-9]{2})$").d // null) as $d
+                | if $d == null then "\(.name)  (no until-YYYY-MM-DD date)"
+                  elif $d < $today then "\(.name)  (expired \($d))"
+                  else empty end' "$EXCEPTIONS")"
+          if [ -n "$bad" ]; then
+            echo "::error::Kubescape exceptions need a review date and must not be expired — renew with a reason or fix the finding:"
+            echo "$bad"
             exit 1
           fi
 
-      - name: Scan base branch for the baseline
+      - name: Check out the base branch
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
+          # A worktree of this clone shares its origin remote; --baseline compares by
+          # repository identity, so a second clone would mark everything incomparable.
           git worktree add --detach "$RUNNER_TEMP/base" "origin/${BASE_REF}"
+
+      - name: Build Helm chart dependencies
+        run: |
+          set -euo pipefail
+          # Kubescape tries `helm dependency build` itself but only logs a warning
+          # when it fails, and the chart is then scanned without its subcharts.
+          # Build them here, from Chart.lock, and fail on any error. On a fresh
+          # runner `helm dependency build` with a Chart.lock fails unless each
+          # https:// repository is registered, so add them first (oci:// needs no
+          # registration; repo aliases such as "@internal" need your own
+          # `helm repo add` step with credentials). Helm, jq and yq are
+          # preinstalled on ubuntu-24.04.
+          i=0
+          for root in "$GITHUB_WORKSPACE" "$RUNNER_TEMP/base"; do
+            [ -d "$root/$SCAN_PATH" ] || continue
+            while IFS= read -r chart; do
+              [ "$(yq '.dependencies // [] | length' "$chart")" -gt 0 ] || continue
+              while IFS= read -r url; do
+                i=$((i + 1))
+                helm repo add "kubescape-dep-$i" "$url" --force-update >/dev/null
+              done < <(yq -r '.dependencies[].repository // ""' "$chart" | grep -E '^https?://' | sort -u || true)
+              echo "helm dependency build $(dirname "$chart")"
+              helm dependency build "$(dirname "$chart")"
+            done < <(find "$root/$SCAN_PATH" -name Chart.yaml -not -path '*/charts/*')
+          done
+
+      - name: Scan base branch for the baseline
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
           cd "$RUNNER_TEMP/base"
           exc=(); [ -f "$EXCEPTIONS" ] && exc=(--exceptions "$EXCEPTIONS")
           if [ -d "$SCAN_PATH" ]; then
+            # Inline kubescape.io/skip-controls annotations are off in both scans:
+            # every suppression goes through the reviewed exceptions file.
             kubescape scan framework "$FRAMEWORKS" "$SCAN_PATH" ${exc[@]+"${exc[@]}"} \
+              --honor-inline-exceptions=false \
               --controls-version "$CONTROLS_VERSION" \
               --format json --output "$RUNNER_TEMP/baseline.json"
           fi
@@ -125,6 +163,7 @@ jobs:
             gate=(--severity-threshold "$SEVERITY_THRESHOLD")  # new SCAN_PATH: no baseline yet
           fi
           kubescape scan framework "$FRAMEWORKS" "$SCAN_PATH" ${exc[@]+"${exc[@]}"} ${gate[@]+"${gate[@]}"} \
+            --honor-inline-exceptions=false \
             --controls-version "$CONTROLS_VERSION" \
             --format sarif,json,markdown --output kubescape-results
 

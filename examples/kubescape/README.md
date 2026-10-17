@@ -50,6 +50,8 @@ bash examples/kubescape/kubescape-validate.sh
 3. Optional: copy `exceptions.json` to `.kubescape/exceptions.json` and replace the entries with your own.
 4. Make the `posture` check required in branch protection.
 
+The workflow also runs on every pull request (a required check skipped by a `paths` filter blocks merges), turns off inline `kubescape.io/skip-controls` annotations on both scans so a PR cannot suppress its own finding, and builds Helm chart dependencies before scanning (Kubescape only warns when its own build fails).
+
 The baseline only works when base and head are scanned from the same clone (it compares by repository identity), which is why the workflow scans the base branch from a `git worktree` of the PR checkout rather than from a second clone.
 
 ## See also

@@ -382,9 +382,10 @@ LOW:      <count>
 
 ## Mode: security
 
-If `kubescape` is installed, run it on the rendered chart first and use the tables below to explain and fix what it reports. It renders with the dependencies already in `charts/` only, so build them first:
+If `kubescape` is installed, run it on the rendered chart first and use the tables below to explain and fix what it reports. It tries to build chart dependencies itself but only warns if that fails, then scans without the subcharts, so build them first and stop on errors:
 
 ```bash
+helm repo add <name> <url>                           # each https:// repository in Chart.yaml dependencies
 helm dependency build <chart>/                       # only if Chart.yaml lists dependencies
 kubescape scan framework nsa <chart>/ --kube-version <target-k8s-version> -v
 ```

@@ -90,7 +90,7 @@ kubectl get nodes -o jsonpath='{.items[0].spec.providerID}'
 | Target | Command | Notes |
 |---|---|---|
 | Manifest directory | `kubescape scan framework nsa k8s/` | Recurses; YAML and JSON |
-| Helm chart | `kubescape scan framework nsa charts/web-service --kube-version 1.33` | Renders with dependencies already vendored in `charts/` only; never fetches them. Run `helm dependency build` first. `--kube-version` sets `.Capabilities.KubeVersion` (Helm's default is v1.20) |
+| Helm chart | `kubescape scan framework nsa charts/web-service --kube-version 1.33` | v4.0.16 runs Helm's dependency build itself when the chart has dependencies (network access; writes `charts/`) but only **warns** if it fails, and then scans the chart without those subcharts. Build them yourself first and stop on errors (`helm repo add` each `https://` repository, then `helm dependency build`; the CI workflow does this). `--kube-version` sets `.Capabilities.KubeVersion` (Helm's default is v1.20) |
 | Kustomize | `kubescape scan framework nsa overlays/production/` | Directory with `kustomization.yaml` |
 | Git URL | `kubescape scan framework nsa https://github.com/acme/payments-platform` | Clones first |
 | Stdin | `helm template … \| kubescape scan framework nsa -` | |
@@ -226,6 +226,8 @@ Matching:
 - `name`, `kind`, `namespace`, `cluster`, `frameworkName`, `controlID`, `ruleName` take regular expressions (`"name": "aws-node|kube-proxy"`); label keys match exactly.
 - Use `controlID`; `controlName` is deprecated.
 
+**Inline exceptions bypass all of this.** Kubescape honours `kubescape.io/skip-controls` annotations (with optional `kubescape.io/skip-reason` and `kubescape.io/skip-expiry`) on the resource itself, **by default for local files** (not for live-cluster scans). Measured: a PR adding `privileged: true` with `kubescape.io/skip-controls: C-0057` passed `--severity-threshold high` (C-0057 `passed (w/exceptions)`); with `--honor-inline-exceptions=false` the same scan fails. In CI, pass `--honor-inline-exceptions=false` on every scan (base and head) so suppressions go through the reviewed exceptions file.
+
 Expiry: the file has no expiry field. Put `until-YYYY-MM-DD` at the end of every `disable` exception's name; the CI workflow fails once the date passes, so accepted risks are renewed with a reason or fixed. In the cluster, `SecurityException` CRDs have a real `expiresAt` (`references/kubescape-operator.md`); a file exception wins over an in-cluster one for the same control and resource.
 
 ---
@@ -344,7 +346,10 @@ For the CI gate on images, use `/platform-skills:trivy`: it is the repository's 
 - Pull requests: scans the base branch from a `git worktree` and gates with `--baseline … --baseline-fail-on-new --baseline-severity-threshold high`; a new `SCAN_PATH` without a base falls back to `--severity-threshold high`.
 - Push to main: full scan, SARIF to code scanning, no gate.
 - Writes `kubescape-results.{sarif,json,md}`; the Markdown goes to the job summary.
-- Fails on `disable` exceptions past their `until-` date.
+- Fails on `disable` exceptions past their `until-` date, or without one (an undated `disable` would suppress forever).
+- Passes `--honor-inline-exceptions=false` on both scans, so a PR cannot suppress its own finding with a `kubescape.io/skip-controls` annotation.
+- Builds Helm chart dependencies under `SCAN_PATH` for both revisions and fails on errors, because Kubescape only warns when its own build fails.
+- Runs on every pull request (no `paths` filter): a required check skipped by a paths filter stays pending and blocks the merge.
 - Skips SARIF upload for fork PRs (their token is read-only); the gate still runs.
 - `permissions: {}` at the top, `contents: read` + `security-events: write` on the job, `persist-credentials: false`.
 
@@ -377,9 +382,9 @@ Air-gapped runners: `kubescape download artifacts --output .kubescape/artifacts`
 - **Fix:** `--controls-version v2.0.38`; bump it in its own PR.
 
 ### Helm chart scan shows few or no resources
-- **Evidence:** a warning about missing dependencies.
-- **Cause:** the scanner renders only dependencies already in `charts/`.
-- **Fix:** `helm dependency build <chart>` (review the sources first), then scan; set `--kube-version` when templates branch on it.
+- **Evidence:** `Failed to build chart dependencies` warning in the scan log; subchart workloads missing from the report.
+- **Cause:** Kubescape's own dependency build failed (unreachable or unregistered repository, private credentials) and it carried on with the parent chart only.
+- **Fix:** build dependencies before scanning and fail on errors: `helm repo add` each `https://` repository from `Chart.yaml` (a fresh Helm config with a `Chart.lock` otherwise fails with `no repository definition`), then `helm dependency build <chart>`; set `--kube-version` when templates branch on it.
 
 ### CIS cluster scan skips about 40% of controls
 - **Evidence:** `skipped` with `missing: hostdata.kubescape.cloud/v1beta0/KubeletInfo` (or `ControlPlaneInfo`, `CNIInfo`, `KubeProxyInfo`).
