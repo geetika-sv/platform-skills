@@ -87,17 +87,22 @@ jobs:
           # Convention: every "disable" exception (an accepted risk; it removes
           # the finding from the score and the gate) ends in -until-YYYY-MM-DD.
           # Undated ones would suppress forever, so they fail like expired ones.
-          # Kubescape disables when ANY action is "disable" (it wins over
-          # alertOnly), so match membership, not the exact list.
+          # Kubescape (opa-utils v0.0.315) suppresses unless an exception is
+          # explicitly alertOnly: a mixed list, an empty or missing actions field
+          # and an unknown value all suppress. Accept only the two singletons.
           today="$(date -u +%F)"
           bad="$(jq -r --arg today "$today" '
-            .[] | select(any(.actions[]?; . == "disable"))
-                | (.name | capture("until-(?<d>[0-9]{4}-[0-9]{2}-[0-9]{2})$").d // null) as $d
-                | if $d == null then "\(.name)  (no until-YYYY-MM-DD date)"
-                  elif $d < $today then "\(.name)  (expired \($d))"
+            .[] | (.name // "<unnamed>") as $n
+                | if .actions != ["disable"] and .actions != ["alertOnly"] then
+                    "\($n)  (actions must be exactly [disable] or [alertOnly])"
+                  elif .actions == ["disable"] then
+                    ($n | capture("until-(?<d>[0-9]{4}-[0-9]{2}-[0-9]{2})$").d // null) as $d
+                    | if $d == null then "\($n)  (no until-YYYY-MM-DD date)"
+                      elif $d < $today then "\($n)  (expired \($d))"
+                      else empty end
                   else empty end' "$EXCEPTIONS")"
           if [ -n "$bad" ]; then
-            echo "::error::Kubescape exceptions need a review date and must not be expired — renew with a reason or fix the finding:"
+            echo "::error::Kubescape exceptions must be [disable] with a current until-YYYY-MM-DD date, or [alertOnly] — renew with a reason or fix the finding:"
             echo "$bad"
             exit 1
           fi

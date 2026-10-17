@@ -208,11 +208,15 @@ for s in doc["jobs"]["posture"]["steps"]:
     mk "accepted-until-2000-01-01" '["disable"]' expired
     mk "accepted-without-a-date" '["disable"]' undated
     mk "known-issue-kept-visible" '["alertOnly"]' alertonly
-    # Kubescape disables when ANY action is "disable" (armoapi-go IsDisable), and
-    # disable wins over alertOnly, so a mixed list still suppresses the finding.
-    mk "mixed-until-2000-01-01" '["alertOnly","disable"]' mixed_expired
+    # opa-utils v0.0.315 suppresses unless every matching exception is explicitly
+    # alertOnly: a mixed list, an empty or missing actions field and an unknown
+    # value all suppress. Only the singletons are accepted, whatever the date.
+    mk "mixed-until-2999-12-31" '["alertOnly","disable"]' mixed
     mk "mixed-without-a-date" '["alertOnly","disable"]' mixed_undated
-    for c in valid:0 alertonly:0 expired:1 undated:1 mixed_expired:1 mixed_undated:1 missing:0; do
+    mk "empty-until-2999-12-31" '[]' empty
+    mk "unknown-until-2999-12-31" '["ignore"]' unknown
+    printf '[{"name":"no-actions-until-2999-12-31","policyType":"postureExceptionPolicy","resources":[{"designatorType":"Attributes","attributes":{"kind":".*"}}],"posturePolicies":[{"controlID":"C-0030"}]}]' > "$tmpx/noactions.json"
+    for c in valid:0 alertonly:0 expired:1 undated:1 mixed:1 mixed_undated:1 empty:1 unknown:1 noactions:1 missing:0; do
       f="${c%%:*}"; want="${c##*:}"
       if EXCEPTIONS="$tmpx/$f.json" bash -c "$step" >/dev/null 2>&1; then got=0; else got=1; fi
       if [ "$got" = "$want" ]; then pass "exception policy: $f → exit $got"; else fail "exception policy: $f → exit $got, want $want"; fi
