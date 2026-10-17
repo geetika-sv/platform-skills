@@ -151,6 +151,45 @@ PY
     fail "workflow must run 'helm dependency build' for charts under SCAN_PATH; kubescape only warns when its own build fails"
   fi
 
+  # Behaviour test of chart discovery in the dependency step: it must find chart
+  # roots whether SCAN_PATH is k8s/, charts/ or a chart itself, and must not
+  # descend into a chart's own charts/ (vendored subcharts). A stub helm records
+  # what would be built, so no network is needed. Needs yq (preinstalled on
+  # GitHub runners); skipped without it.
+  depstep="$(python3 -I -c '
+import sys, yaml
+doc = yaml.safe_load(open(sys.argv[1]))
+for s in doc["jobs"]["posture"]["steps"]:
+    if s.get("name") == "Build Helm chart dependencies":
+        print(s["run"]); break' "$WORKFLOW")"
+  if ! command -v yq >/dev/null 2>&1; then
+    echo "  SKIP: yq not on PATH; chart discovery not exercised"
+  elif [ -n "$depstep" ]; then
+    tmpd="$(mktemp -d)"
+    mkdir -p "$tmpd/bin"
+    printf '#!/usr/bin/env bash\necho "$*" >> "%s/helm.log"\n' "$tmpd" > "$tmpd/bin/helm"; chmod +x "$tmpd/bin/helm"
+    chart() { mkdir -p "$1"; printf 'apiVersion: v2\nname: %s\nversion: 0.1.0\n' "$(basename "$1")" > "$1/Chart.yaml"
+              [ "${2:-}" = deps ] && printf 'dependencies:\n  - name: redis\n    version: 1.0.0\n    repository: https://charts.example.com\n' >> "$1/Chart.yaml"; return 0; }
+    # layout A: SCAN_PATH=charts with charts/api (deps) and a vendored subchart that also lists deps
+    chart "$tmpd/a/charts/api" deps; chart "$tmpd/a/charts/api/charts/redis" deps; chart "$tmpd/a/charts/web"
+    # layout B: SCAN_PATH=k8s with k8s/payments (deps)
+    chart "$tmpd/b/k8s/payments" deps
+    # layout C: SCAN_PATH is the chart itself
+    chart "$tmpd/c/charts/api" deps
+    for c in "a:charts:charts/api" "b:k8s:k8s/payments" "c:charts/api:charts/api"; do
+      ws="${c%%:*}"; rest="${c#*:}"; sp="${rest%%:*}"; want="${rest#*:}"
+      : > "$tmpd/helm.log"
+      (cd "$tmpd/$ws" && PATH="$tmpd/bin:$PATH" GITHUB_WORKSPACE="$tmpd/$ws" RUNNER_TEMP="$tmpd/rt-$ws" SCAN_PATH="$sp" bash -c "$depstep") >/dev/null 2>&1 || true
+      builds="$(grep -c '^dependency build ' "$tmpd/helm.log" || true)"
+      if grep -q "^dependency build $tmpd/$ws/$want\$" "$tmpd/helm.log" && [ "$builds" = 1 ]; then
+        pass "chart discovery: SCAN_PATH=$sp builds $want only (vendored subcharts skipped)"
+      else
+        fail "chart discovery: SCAN_PATH=$sp should build exactly $want, helm saw: $(tr '\n' ';' < "$tmpd/helm.log")"
+      fi
+    done
+    rm -rf "$tmpd"
+  fi
+
   # Behaviour test of the exception-policy step against crafted files.
   step="$(python3 -I -c '
 import sys, yaml

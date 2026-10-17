@@ -125,6 +125,12 @@ jobs:
           for root in "$GITHUB_WORKSPACE" "$RUNNER_TEMP/base"; do
             [ -d "$root/$SCAN_PATH" ] || continue
             while IFS= read -r chart; do
+              # Skip vendored subcharts: a Chart.yaml inside <chart>/charts/. Matching
+              # on a directory named "charts" alone would skip SCAN_PATH=charts.
+              parent="$(dirname "$(dirname "$chart")")"
+              if [ "$(basename "$parent")" = charts ] && [ -f "$(dirname "$parent")/Chart.yaml" ]; then
+                continue
+              fi
               [ "$(yq '.dependencies // [] | length' "$chart")" -gt 0 ] || continue
               while IFS= read -r url; do
                 i=$((i + 1))
@@ -132,7 +138,7 @@ jobs:
               done < <(yq -r '.dependencies[].repository // ""' "$chart" | grep -E '^https?://' | sort -u || true)
               echo "helm dependency build $(dirname "$chart")"
               helm dependency build "$(dirname "$chart")"
-            done < <(find "$root/$SCAN_PATH" -name Chart.yaml -not -path '*/charts/*')
+            done < <(find "$root/$SCAN_PATH" -name Chart.yaml)
           done
 
       - name: Scan base branch for the baseline
