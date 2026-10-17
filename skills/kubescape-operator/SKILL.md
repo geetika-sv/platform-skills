@@ -127,7 +127,7 @@ Build it from `kubectl get workloadconfigurationscansummaries -A`, `vulnerabilit
 ## Mode: install
 
 1. Step 0 and the profile (Layer 2).
-2. Copy `examples/kubescape-operator/flux/` into the user's GitOps path; apply the profile's capability changes; set `clusterName`; keep `version` exact and `kubescape.image.tag` at v4.0.16 (or later) — the bundled v4.0.13 scanner produces no results.
+2. Copy `examples/kubescape-operator/flux/` into the user's GitOps path; apply the profile's capability changes; set `clusterName`; keep `version` exact and `kubescape.image.tag` at v4.0.16 (or later) — the bundled v4.0.13 scanner produces no results; keep `global.enableClusterWideSecretAccess: false` (the chart default `true` lets the scanner and operator read every Secret in the cluster) and ask for explicit approval before turning it on.
 3. Argo CD: same values in an `Application` (`helm.valuesObject`, `ServerSideApply=true`).
 4. Commit, reconcile, then verify: HelmRelease Ready, pods, APIService `Available`, `kubescape operator scan configurations` followed by summaries appearing.
 5. Restart workloads once if runtime capabilities are on, so profiles reach `complete`.
@@ -154,7 +154,7 @@ Upgrade: bump `version` in a PR; read the release notes; compare the new bundled
 ## Mode: netpol
 
 1. `kubectl -n <ns> get generatednetworkpolicies`; pick the workload (`<kind>-<name>`).
-2. Extract `.spec`. Use `policyRef` (`dns`, `server`) to identify each destination, then write in-cluster peers as `podSelector`/`namespaceSelector` and external ones as a reviewed `ipBlock` CIDR — NetworkPolicy has no hostname peers (FQDN rules need a CNI-specific policy such as Cilium `toFQDNs`). Add a namespace default-deny.
+2. Extract `.spec`. Use `policyRef` (`dns`, `server`) to identify each destination, then write in-cluster peers as `podSelector`/`namespaceSelector` and external ones as a reviewed `ipBlock` CIDR — NetworkPolicy has no hostname peers (FQDN rules need a CNI-specific policy such as Cilium `toFQDNs`). The policy selects only this workload, so it isolates only these pods. Add a namespace-wide default-deny later, once every workload in the namespace has a reviewed allow policy and its traffic is validated; earlier, it cuts traffic for pods that have none yet.
 3. Ask how long the workload has run; under one full traffic cycle (daily jobs, weekly reports) → wait.
 4. Commit for the GitOps reconciler; one namespace at a time; rollback = revert. Never `kubectl apply` the generated object to production.
 5. Hardening the rest of the namespace → `/platform-skills:kubernetes`.
@@ -195,6 +195,7 @@ Use the systematic order: evidence first, one hypothesis, smallest test, then th
 ### Never do these
 - Enable a node-agent capability on nodes that failed the kernel preflight.
 - Enable `remediation` or `autoUpgrading`.
+- Turn on `global.enableClusterWideSecretAccess` without explicit security approval.
 - Install with the chart's bundled scanner (v4.0.13) and call it done.
 - Apply a generated NetworkPolicy directly to production.
 - Use `kubectl get applicationprofiles` or `networkneighborhoods` (removed); use `containerprofiles`.

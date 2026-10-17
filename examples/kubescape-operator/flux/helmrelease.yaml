@@ -31,6 +31,14 @@ spec:
   values:
     clusterName: prod-eu-west-1   # shown in every report and metric; the default "cluster" makes clusters indistinguishable
     ksNamespace: kubescape
+    global:
+      # Chart default true: the scanner and operator ClusterRoles get/list/watch
+      # Secrets in every namespace. false keeps Secret reads inside kubescape.
+      # Cost: C-0212 and C-0255 (the only controls reading Secret objects) see less
+      # in-cluster, and with nodeSbomGeneration off kubevuln cannot use workloads'
+      # imagePullSecrets (use imageScanning.privateRegistries.credentials).
+      # Turn on only with explicit security approval.
+      enableClusterWideSecretAccess: false
     # Chart default plus flux-system. Overriding replaces the list, so keep the defaults.
     excludeNamespaces: "kubescape,kube-system,kube-public,kube-node-lease,kubeconfig,gmp-system,gmp-public,flux-system"
 

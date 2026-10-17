@@ -58,6 +58,9 @@ if not vals.get("clusterName") or vals.get("clusterName") == "cluster": errors.a
 caps = vals.get("capabilities", {})
 # Mutating or self-upgrading capabilities stay off: GitOps owns upgrades, and
 # remediation grants cluster-wide patch on nodes.
+# Chart default true grants the scanner and operator cluster-wide Secret reads.
+if vals.get("global", {}).get("enableClusterWideSecretAccess") is not False:
+    errors.append("set values.global.enableClusterWideSecretAccess: false (chart default true lets the scanner and operator read Secrets in every namespace)")
 for k in ("remediation", "autoUpgrading", "manageWorkloads"):
     if caps.get(k, "disable") != "disable": errors.append(f"capabilities.{k} must stay disable")
 for k in ("riskAcceptance", "runtimeDetection", "prometheusExporter", "continuousScan"):
@@ -218,6 +221,23 @@ elif command -v helm >/dev/null 2>&1; then
     pass "helm template kubescape-operator $ver renders"
     if grep -q 'name: node-agent' "$tmp/out.yaml"; then pass "node-agent DaemonSet rendered"; else fail "node-agent not rendered"; fi
     if grep -q 'name: prometheus-exporter' "$tmp/out.yaml"; then pass "prometheus-exporter rendered"; else fail "prometheus-exporter not rendered"; fi
+    # The rendered RBAC, not just the value: no ClusterRole may grant Secrets.
+    if python3 -I - "$tmp/out.yaml" <<'PY2'
+import sys, yaml
+bad = []
+for d in yaml.safe_load_all(open(sys.argv[1])):
+    if d and d.get("kind") == "ClusterRole":
+        for r in d.get("rules") or []:
+            if "secrets" in (r.get("resources") or []) or "*" in (r.get("resources") or []):
+                bad.append(f'{d["metadata"]["name"]}: {",".join(r.get("verbs") or [])}')
+for b in bad: print("    -", b)
+sys.exit(1 if bad else 0)
+PY2
+    then
+      pass "no rendered ClusterRole grants access to Secrets"
+    else
+      fail "a rendered ClusterRole grants cluster-wide Secret access (see above)"
+    fi
   else
     fail "helm template failed: $(head -3 "$tmp/err")"
   fi

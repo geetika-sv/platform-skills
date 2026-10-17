@@ -10,7 +10,7 @@ Chart `kubescape-operator` 1.40.4 with the scanner pinned to v4.0.16, Flux v2.9,
 |---|---|
 | `flux/namespace.yaml` | `kubescape` namespace, Pod Security level `privileged` (node-agent is a privileged eBPF DaemonSet) |
 | `flux/helmrepository.yaml` | `https://kubescape.github.io/helm-charts/` (no OCI registry is published) |
-| `flux/helmrelease.yaml` | Pinned chart, named cluster, every capability set explicitly with the reason, scanner image override, mutating capabilities off |
+| `flux/helmrelease.yaml` | Pinned chart, named cluster, every capability set explicitly with the reason, scanner image override, mutating capabilities and cluster-wide Secret reads off |
 | `flux/kustomization.yaml` | The three above, for `kubectl apply -k` or a Flux `Kustomization` |
 | `security-exception.yaml` | `SecurityException` with reason, author and `expiresAt`, suppressing one control on one Deployment |
 | `ci-runners/` | Opt-in step 1: `RuntimeRuleAlertBinding` giving `ci-runners` signature rules only |

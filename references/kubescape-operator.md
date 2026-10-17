@@ -74,6 +74,7 @@ Every capability is `enable` or `disable` under `capabilities:`. Defaults from c
 | `admissionController` | enable | Validating webhook on pods, `pods/exec`, `pods/attach`, `pods/portforward`, rolebindings, clusterrolebindings, networkpolicies; `failurePolicy: Ignore` (measured) | no | keep: it reports (R2000 exec-to-pod, R2001 port-forward), never blocks |
 | `riskAcceptance` | disable | Reads `SecurityException` / `ClusterSecurityException` | no | enable |
 | `prometheusExporter` | disable | `prometheus-exporter` Deployment, port 8080 | no | enable |
+| `global.enableClusterWideSecretAccess` (not under `capabilities`) | **true** | ClusterRoles `kubescape` and `operator` get `get/list/watch` on Secrets in every namespace (rendered and confirmed) | — | **false** in the example: Secret reads stay in `kubescape`. Measured live: posture and vulnerability results unchanged for the demo workload, 0 failed scans; the scanner logs `failed to pull resource type … secrets is forbidden` once per scan (warning). Cost: C-0212 and C-0255, the only controls that read Secret objects, see less; with `nodeSbomGeneration` off, kubevuln cannot use workloads' `imagePullSecrets`. Turn on only with explicit security approval |
 | `remediation` | disable | Mutating RBAC: patch on workloads and pods, **cluster-wide patch on nodes**, create/delete NetworkPolicies | no | keep disabled |
 | `autoUpgrading` | disable | Self-upgrades the chart | no | keep disabled: GitOps owns versions |
 | `manageWorkloads`, `syncSBOM`, `vexGeneration`, `scanEmbeddedSBOMs`, `agentRuntimePosture`, `kubescapeOffline` | disable | Special purpose | — | leave unless needed |
@@ -113,7 +114,7 @@ kubectl get apiservice v1beta1.spdx.softwarecomposition.kubescape.io   # Availab
 
 Argo CD: the same values in an `Application` with `helm.valuesObject`; set `ServerSideApply=true` for the CRDs.
 
-- **Blast radius:** read-only cluster access for scanning (with `remediation` off); a privileged DaemonSet on every node when node-agent is on; a fail-open admission webhook; up to about 5 GiB for kubevuln during scans.
+- **Blast radius:** read-only cluster access for scanning (with `remediation` off); with the chart default `global.enableClusterWideSecretAccess: true` that includes reading every Secret in the cluster, so the example sets it to `false`; a privileged DaemonSet on every node when node-agent is on; a fail-open admission webhook; up to about 5 GiB for kubevuln during scans.
 - **If node-agent cannot become Ready**, Helm's wait fails and Flux's install remediation uninstalls the whole release, posture scanning included. Run the preflight first.
 
 ### Upgrade and rollback
@@ -159,7 +160,7 @@ kubectl -n payments get vulnerabilitymanifestsummaries deployment-payments-api-p
 
 Summaries are named `<kind>-<workload>-<container>`. Each severity has `all` and, with relevancy, `relevant`: CVEs in packages the container actually loaded during its learning period. Relevancy is what makes in-cluster CVE counts actionable; it needs the node-agent. Without it, every CVE in every layer counts.
 
-Private registries: kubevuln pulls images itself when `nodeSbomGeneration` is off. Workloads' `imagePullSecrets` are used; otherwise set `imageScanning.privateRegistries.credentials` (`registry`, `username`, `password`) in the values, from a SOPS- or ESO-managed source rather than plain Git (`/platform-skills:secrets`).
+Private registries: kubevuln pulls images itself when `nodeSbomGeneration` is off. It can use workloads' `imagePullSecrets` only with `global.enableClusterWideSecretAccess: true` (cluster-wide Secret reads), which the example turns off. Prefer `imageScanning.privateRegistries.credentials` (`registry`, `username`, `password`), scoped to the registries you name, from a SOPS- or ESO-managed source rather than plain Git (`/platform-skills:secrets`). With node-agent's `nodeSbomGeneration` on, SBOMs come from the node and no registry pull is needed.
 
 Trivy Operator instead: `/platform-skills:trivy k8s`. Pick one; both scanning every image is twice the registry traffic for the same answer.
 
@@ -232,7 +233,7 @@ yq '.policyRef' /tmp/gnp.yaml                                                # I
 Before committing:
 - Wait at least one full traffic cycle (daily batch jobs, weekly reports): a policy learned in an hour blocks what happens once a day.
 - Use `policyRef` (`originalIP` → `dns`, `server`) only to identify each destination, then express it in terms a NetworkPolicy accepts: in-cluster peers as `podSelector`/`namespaceSelector`, external ones as a reviewed `ipBlock` CIDR. Standard NetworkPolicy has no hostname peers, so a DNS name in the policy is rejected by the API; FQDN egress needs a CNI-specific resource (for example Cilium `toFQDNs`, Calico DNS policy).
-- Add a default-deny for the namespace in the same PR.
+- Start with the selected workload only: its policy (`podSelector` for that workload, `policyTypes: [Ingress, Egress]`) isolates just those pods. Add a namespace-wide default-deny in a later PR, once every workload in the namespace has a reviewed allow policy and its traffic has been validated; added first, it cuts traffic for every other pod in the namespace.
 - Apply through GitOps, one namespace at a time; rollback is reverting the commit.
 
 ---
