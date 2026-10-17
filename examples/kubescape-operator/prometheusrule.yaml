@@ -33,16 +33,19 @@ spec:
           annotations:
             summary: "High-severity Kubescape findings rose by {{ $value }} in 24h"
             description: "Compare with yesterday's deploys; the PR gate (examples/kubescape/workflows/kubescape.yml) should have caught it."
-        - alert: KubescapeMetricsAbsent
-          # Missing series usually means scans are failing, not that the cluster is clean
-          # (for example chart 1.40.4's bundled scanner v4.0.13: "framework 'C-0042' not found").
+        - alert: KubescapeExporterDown
+          # Fires only when Prometheus stops getting the exporter's metrics (exporter
+          # down, or the ServiceMonitor no longer selected). It does NOT detect failing
+          # scans: prometheus-exporter v0.2.23 registers these gauges at start-up, so a
+          # running exporter serves 0 or the last value even when every scan fails.
+          # Alert on scan failures from the scanner's logs instead (see the reference).
           expr: absent(kubescape_controls_total_cluster_high)
-          for: 2h
+          for: 30m
           labels:
             severity: warning
           annotations:
-            summary: "No Kubescape posture metrics for 2h"
-            description: "kubectl -n kubescape logs deploy/kubescape | grep 'scanning failed'"
+            summary: "Prometheus has no Kubescape exporter metrics for 30m"
+            description: "kubectl -n kubescape get pods -l app=prometheus-exporter; check the ServiceMonitor release label."
 
     - name: kubescape.vulnerabilities
       rules:

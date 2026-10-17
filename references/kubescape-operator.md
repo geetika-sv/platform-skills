@@ -257,7 +257,13 @@ Measured: applying it moved C-0237 on `payments-api` to `passed (w/exceptions)` 
 
 Scraping: `prometheusExporter.serviceMonitor.enabled: true` with the Prometheus Operator (kube-prometheus-stack needs `serviceMonitorSelectorNilUsesHelmValues: false` or a matching `release` label), or `configurations.prometheusAnnotations: enable` for annotation-based scraping. node-agent has its own metrics (`nodeAgent.config.prometheusExporter: enable`, `nodeAgent.serviceMonitor.enabled: true`): `node_agent_alert_counter`, `node_agent_rule_counter`, `node_agent_exec_counter`, …
 
-Alerts: `examples/kubescape-operator/prometheusrule.yaml` (checked with `promtool check rules` and `promtool test rules`). Include `absent(kubescape_controls_total_cluster_high)`: a broken scanner shows up as missing series, not as findings. Without relevancy, alert on `total` CVEs; the example's fallback alert does that only while the `relevant` series report nothing.
+Alerts: `examples/kubescape-operator/prometheusrule.yaml` (checked with `promtool check rules` and `promtool test rules`). `KubescapeExporterDown` (`absent(kubescape_controls_total_cluster_high)`) only says Prometheus stopped getting the exporter's metrics. It cannot detect failing scans: prometheus-exporter v0.2.23 registers its cluster gauges at start-up, so a running exporter serves 0, or the last value, while every scan fails. The scanner reports failures only in its logs; alert there, for example with Loki (adjust the stream labels to your log pipeline; the scanner pods carry `app: kubescape`):
+
+```logql
+sum(count_over_time({namespace="kubescape", app="kubescape"} |= "scanning failed" [1h])) > 0
+```
+
+Without relevancy, alert on `total` CVEs; the example's fallback alert does that only while the `relevant` series report nothing.
 
 ---
 
@@ -272,7 +278,7 @@ Alerts: `examples/kubescape-operator/prometheusrule.yaml` (checked with `promtoo
 - **Evidence:** `kubectl -n kubescape logs deploy/kubescape | grep 'scanning failed'` → `framework 'C-0042' not found`; `kubectl get workloadconfigurationscansummaries -A` is empty.
 - **Cause:** bundled scanner v4.0.13 (chart 1.40.4).
 - **Fix:** `kubescape.image.tag: v4.0.16` (≥ v4.0.14). Verify: `kubescape operator scan configurations`, then summaries appear (about 30 s on the test cluster).
-- **Prevention:** the `KubescapeMetricsAbsent` alert.
+- **Prevention:** a log alert on `scanning failed` from the scanner (Metrics). Metrics will not show it: the exporter keeps serving 0 or stale values.
 
 ### HelmRelease uninstalled itself
 - **Evidence:** `kubectl -n kubescape get helmrelease kubescape -o jsonpath='{.status.conditions}'` → `InstallFailed … timeout waiting for: [DaemonSet/kubescape/node-agent status: 'InProgress']`, `Remediated=True UninstallSucceeded`.
@@ -293,7 +299,7 @@ Alerts: `examples/kubescape-operator/prometheusrule.yaml` (checked with `promtoo
 
 ### No metrics in Prometheus
 - **Evidence:** `kubectl -n kubescape port-forward svc/prometheus-exporter 18080:8080` then `curl localhost:18080/metrics | grep kubescape_controls_total_cluster`.
-- **Fix:** series present → ServiceMonitor selection (`release` label); absent → scans failing (see above).
+- **Fix:** series absent → exporter pod or ServiceMonitor selection (`release` label); series present but never changing after changes in the cluster → check the scanner logs for `scanning failed` (see above).
 
 ---
 

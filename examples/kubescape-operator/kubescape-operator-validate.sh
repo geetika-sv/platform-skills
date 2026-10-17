@@ -130,6 +130,23 @@ for m in kubescape_controls_total_cluster_critical kubescape_controls_total_clus
   if grep -q "$m" "$DIR/prometheusrule.yaml" 2>/dev/null; then pass "prometheusrule.yaml uses $m"; else fail "prometheusrule.yaml should alert on $m"; fi
 done
 
+# prometheus-exporter v0.2.23 registers the cluster gauges in init(): a running
+# exporter always serves them (0, or the last value), so absent() only means
+# "exporter not scraped". It must not be sold as scan-failure detection.
+if python3 -I - "$DIR/prometheusrule.yaml" <<'PY'
+import sys, yaml
+doc = yaml.safe_load(open(sys.argv[1]))
+bad = [r["alert"] for g in doc["spec"]["groups"] for r in g["rules"]
+       if "absent(" in str(r.get("expr", "")) and "scan" in (" ".join(str(v) for v in (r.get("annotations") or {}).values()) + r["alert"]).lower()]
+for b in bad: print("    -", b)
+sys.exit(1 if bad else 0)
+PY
+then
+  pass "absent() alerts claim only a missing exporter, not failing scans"
+else
+  fail "an absent() alert claims to detect failing scans; the exporter's gauges exist even when every scan fails"
+fi
+
 echo ""
 echo "=== Chart renders with these values (helm) ==="
 if [ ! -f "$DIR/flux/helmrelease.yaml" ]; then

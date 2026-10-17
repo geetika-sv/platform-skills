@@ -14,7 +14,7 @@ Chart `kubescape-operator` 1.40.4 with the scanner pinned to v4.0.16, Flux v2.9,
 | `flux/kustomization.yaml` | The three above, for `kubectl apply -k` or a Flux `Kustomization` |
 | `security-exception.yaml` | `SecurityException` with reason, author and `expiresAt`, suppressing one control on one Deployment |
 | `runtime-rule-binding.yaml` | `RuntimeRuleAlertBinding` adding high-signal runtime rules to `kube-system`, which the default binding excludes |
-| `prometheusrule.yaml` | Five alerts on the exporter's metrics, including a fallback for clusters without relevancy and an `absent()` alert for broken scans |
+| `prometheusrule.yaml` | Five alerts on the exporter's metrics, including a fallback for clusters without relevancy and an alert when the exporter stops reporting |
 | `kubescape-operator-validate.sh` | Offline checks; renders the chart with these values when `helm` is on PATH |
 
 ## Install
@@ -48,7 +48,7 @@ Not run live: anything that needs the node-agent (runtime detection, container p
 
 ## Two things that are not obvious
 
-**The chart's bundled scanner is too old.** Chart 1.40.4 ships scanner v4.0.13, whose `all` framework scans fail with `framework 'C-0042' not found` against the current controls (fixed in v4.0.14, kubescape#3768). Every scheduled and operator-triggered scan uses `all`, so without the `kubescape.image.tag` override the operator installs cleanly and then produces no results. `KubescapeMetricsAbsent` in `prometheusrule.yaml` catches this class of failure.
+**The chart's bundled scanner is too old.** Chart 1.40.4 ships scanner v4.0.13, whose `all` framework scans fail with `framework 'C-0042' not found` against the current controls (fixed in v4.0.14, kubescape#3768). Every scheduled and operator-triggered scan uses `all`, so without the `kubescape.image.tag` override the operator installs cleanly and then produces no results. No metric shows it: the exporter keeps serving its gauges (0, or the last value), so watch the scanner's logs for `scanning failed` (`references/kubescape-operator.md`, Metrics).
 
 **A node-agent that cannot start removes everything.** With Flux's default install wait, a node-agent that never becomes Ready fails the Helm install and Flux's remediation uninstalls the whole release, posture scanning included. Run the kernel preflight above before enabling the node-agent capabilities.
 
