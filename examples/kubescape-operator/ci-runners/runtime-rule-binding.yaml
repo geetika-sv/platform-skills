@@ -6,13 +6,15 @@
 # attack: a known-malicious binary, a crypto miner, a kernel module load, a
 # container escape.
 #
-# This only works together with two settings in flux/helmrelease.yaml:
-#   - ci-runners is NOT in excludeNamespaces: node-agent never traces pods in
-#     excluded namespaces (node-agent v0.3.219, Config.SkipNamespace), so a
-#     binding for an excluded namespace can never fire;
-#   - a postRenderers patch adds ci-runners to the NotIn list of the chart's
-#     default all-rules-all-pods binding, so the anomaly rules stop there and
-#     only this binding applies.
+# Opt-in, in two steps (README, "Narrow runtime rules for a noisy namespace"):
+#   1. this binding (kustomization.yaml here), after the base install is Ready;
+#   2. release/: the base install plus a post-renderer that adds ci-runners to
+#      the NotIn list of the chart's default all-rules-all-pods binding.
+# Until step 2, ci-runners has both bindings (more alerts, never fewer).
+#
+# ci-runners must not be in excludeNamespaces: node-agent never traces pods in
+# excluded namespaces (node-agent v0.3.219, Config.SkipNamespace), so a binding
+# for an excluded namespace can never fire.
 apiVersion: kubescape.io/v1
 kind: RuntimeRuleAlertBinding
 metadata:

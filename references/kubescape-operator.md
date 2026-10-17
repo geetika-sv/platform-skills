@@ -121,7 +121,7 @@ Argo CD: the same values in an `Application` with `helm.valuesObject`; set `Serv
 - Upgrade in a PR: bump `version`, read the chart's release notes for capability default changes, check the bundled scanner tag (`helm show values kubescape/kubescape-operator --version <v> | yq '.kubescape.image.tag'`) and keep the override at or above it.
 - Pause: `flux suspend helmrelease kubescape -n kubescape` (stops reconciling, keeps everything running).
 - Roll back: `git revert` the bump, then `flux resume helmrelease kubescape -n kubescape`; `upgrade.remediation.remediateLastFailure: true` already rolls back a failed upgrade.
-- Remove: `kubectl delete -k examples/kubescape-operator/flux`. CRDs and their resources (`SecurityException`s, `Rules`) stay; delete them explicitly if that is the intent.
+- Remove: `kubectl delete -k examples/kubescape-operator/flux`. This also deletes the `kubescape` namespace and every namespaced resource in it, including custom `Rules` there. `SecurityException`s in application namespaces, and cluster-scoped `ClusterSecurityException`s and `RuntimeRuleAlertBinding`s, survive while their CRDs stay. Export what you want to keep first: `kubectl get rules -n kubescape -o yaml > kubescape-rules.yaml; kubectl get se -A -o yaml > security-exceptions.yaml; kubectl get cse,runtimerulealertbindings -o yaml > cluster-scoped.yaml`.
 
 ---
 
@@ -176,10 +176,12 @@ Enable: `capabilities.runtimeDetection: enable` and `alertCRD.installDefault: tr
 
 **A binding cannot reach an excluded namespace.** The chart passes `excludeNamespaces` (or `includeNamespaces`) to node-agent itself, and node-agent v0.3.219 never traces pods there (`Config.SkipNamespace`), so a binding for `kube-system` with the default values never fires. Covering such a namespace means removing it from `excludeNamespaces`, which also adds it to posture and CVE scans and to the default all-rules binding.
 
-To narrow detection for a noisy namespace instead (CI runners: every build starts new processes, so anomaly rules fire constantly), do two things together, as in the example (select rules by `ruleID`, `ruleName` or `ruleTags`):
+To narrow detection for a noisy namespace instead (CI runners: every build starts new processes, so anomaly rules fire constantly), use the opt-in `examples/kubescape-operator/ci-runners/`, in this order (select rules by `ruleID`, `ruleName` or `ruleTags`):
 
-1. `examples/kubescape-operator/runtime-rule-binding.yaml`: signature rules only (`ruleTags: [malicious]`, R1002, R1006) for `ci-runners`.
-2. A HelmRelease `postRenderers` patch that appends `ci-runners` to the `NotIn` list of `all-rules-all-pods`, so the anomaly rules stop there. Verified through Flux: the installed binding ends `…,flux-system,ci-runners`. The patch assumes `includeNamespaces` is empty (the default binding then selects with `NotIn`).
+1. **Step 1, after the base install is Ready:** `ci-runners/` applies a binding with signature rules only (`ruleTags: [malicious]`, R1002, R1006). Its CRD comes from the Helm release, so on a fresh cluster this fails harmlessly (`ensure CRDs are installed first`); with Flux, give its Kustomization `dependsOn` on the one that installs the operator.
+2. **Step 2:** switch the operator's Kustomization from `flux/` to `ci-runners/release/` (the base plus a `postRenderers` patch appending `ci-runners` to the `NotIn` list of `all-rules-all-pods`).
+
+Never put the patch in the base install: a fresh install would then remove the namespace from the default binding before any replacement exists. Measured through Flux on a fresh cluster: base → default binding covers `ci-runners`; step 1 → both bindings; step 2 → default binding excludes it and the signature binding remains. The patch assumes `includeNamespaces` is empty (the default binding then selects with `NotIn`). Roll back in reverse: step 2 first.
 
 ### Learning period
 
@@ -208,7 +210,7 @@ kubectl get containerprofiles -n payments \
 | node-agent logs (default) | `nodeAgent.config.stdoutExporter: true` → `kubectl -n kubescape logs ds/node-agent` |
 | Alertmanager | `nodeAgent.config.alertManagerExporterUrls: ["alertmanager-operated.monitoring:9093"]` |
 | Syslog | `nodeAgent.config.syslogExporterURL: "syslog.logging:514"` |
-| HTTP | `nodeAgent.config.httpExporterConfig.url` (+ `maxAlertsPerMinute`) |
+| HTTP | `nodeAgent.config.httpExporterConfig.url` (+ `maxAlertsPerMinute`). Chart 1.40.4 renders it into node-agent's config only when the synchronizer runs, which needs backend submission (`server` plus `account`/`accessKey`). Without a backend the URL is ignored; use Alertmanager, syslog or stdout |
 
 Roll out on one node pool first (`nodeAgent.nodeSelector` or the chart's multiple-DaemonSet options), watch alert volume for a learning period, then widen. Test with something a learned profile never saw, after `completed`: `kubectl -n payments exec deploy/payments-api -- ls /` triggers R2000 at once and R0001 against the profile.
 

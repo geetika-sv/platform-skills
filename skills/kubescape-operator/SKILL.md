@@ -105,7 +105,7 @@ State why the recommended one fits, in one line. Never offer a node-agent profil
 - **Overlap** (detected Falco or Trivy Operator): "Turn off Kubescape's <runtime alerts | CVE scanning> so each signal has one owner? [Y]".
 - **Learning period** (`runtime`): "Profiles learn for 24h before anomaly rules fire. Keep 24h? [Y]" Shorter means more false alerts.
 - **Cluster name** (`install`): "Name this cluster in reports? [<context name>]". The chart default `cluster` makes clusters indistinguishable.
-- **Alert destination** (`runtime`): logs only (default), Alertmanager, syslog, or HTTP.
+- **Alert destination** (`runtime`): logs only (default), Alertmanager or syslog. HTTP only with a Kubescape backend configured (`server` plus credentials); chart 1.40.4 ignores the HTTP URL otherwise.
 
 ## Status card (every mode ends with this)
 
@@ -147,8 +147,8 @@ Upgrade: bump `version` in a PR; read the release notes; compare the new bundled
 1. Preflight passed? Falco on the same nodes? (Layer 3 overlap.)
 2. `capabilities.runtimeDetection: enable`, `alertCRD.installDefault: true`; one node pool first.
 3. Learning: list `containerprofiles` with `kubescape.io/status` and `kubescape.io/completion`; explain `ready` = still learning, `completed` = active.
-4. Bindings: keep `all-rules-all-pods`. A binding cannot reach a namespace in `excludeNamespaces` (node-agent never traces it). To narrow a noisy namespace (CI runners) to signature rules, apply `examples/kubescape-operator/runtime-rule-binding.yaml` together with the HelmRelease `postRenderers` patch that removes that namespace from the default binding.
-5. Alerts: logs, Alertmanager, syslog or HTTP exporter values.
+4. Bindings: keep `all-rules-all-pods`. A binding cannot reach a namespace in `excludeNamespaces` (node-agent never traces it). To narrow a noisy namespace (CI runners) to signature rules, use the opt-in `examples/kubescape-operator/ci-runners/` in two steps: first its binding (after the operator is Ready; Flux `dependsOn`), then switch the operator's Kustomization to `ci-runners/release/`, which adds the post-renderer that removes the namespace from the default binding. Never the other way round, and never in the base install.
+5. Alerts: logs, Alertmanager or syslog exporter values (HTTP needs backend submission; see the reference).
 6. Prove it: after `completed`, `kubectl exec` into a test pod and show the R2000/R0001 alert in `kubectl -n kubescape logs ds/node-agent`.
 
 ## Mode: netpol

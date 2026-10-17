@@ -13,7 +13,8 @@ Chart `kubescape-operator` 1.40.4 with the scanner pinned to v4.0.16, Flux v2.9,
 | `flux/helmrelease.yaml` | Pinned chart, named cluster, every capability set explicitly with the reason, scanner image override, mutating capabilities off |
 | `flux/kustomization.yaml` | The three above, for `kubectl apply -k` or a Flux `Kustomization` |
 | `security-exception.yaml` | `SecurityException` with reason, author and `expiresAt`, suppressing one control on one Deployment |
-| `runtime-rule-binding.yaml` | `RuntimeRuleAlertBinding` giving `ci-runners` signature rules only; pairs with the HelmRelease `postRenderers` patch that takes `ci-runners` out of the default all-rules binding |
+| `ci-runners/` | Opt-in step 1: `RuntimeRuleAlertBinding` giving `ci-runners` signature rules only |
+| `ci-runners/release/` | Opt-in step 2: the base install plus a `postRenderers` patch taking `ci-runners` out of the default all-rules binding |
 | `prometheusrule.yaml` | Five alerts on the exporter's metrics, including a fallback for clusters without relevancy and an alert when the exporter stops reporting |
 | `kubescape-operator-validate.sh` | Offline checks; renders the chart with these values when `helm` is on PATH |
 
@@ -46,6 +47,20 @@ Live on Kubernetes 1.36 (docker-desktop, arm64) through Flux: install, posture s
 
 Not run live: anything that needs the node-agent (runtime detection, container profiles, relevancy, generated NetworkPolicies). Docker Desktop's kernel (7.0.14-linuxkit) is built without `CONFIG_FANOTIFY_ACCESS_PERMISSIONS`, so node-agent crash-loops there with `no container runtime can be monitored with fanotify`; the same applies to kind and minikube inside Docker Desktop. The docker-desktop run used this HelmRelease with the seven node-agent capabilities set to `disable` (see `references/kubescape-operator.md`, "Install profiles"). EKS, AKS and GKE node images ship the option.
 
+## Narrow runtime rules for a noisy namespace (opt-in)
+
+The base install gives every traced namespace all 28 default rules. For a namespace where anomaly rules are pure noise (CI runners start new processes on every build), keep only the signature rules, in two steps:
+
+```bash
+# 1. after the base install is Ready (the binding's CRD comes from the Helm release)
+kubectl apply -k examples/kubescape-operator/ci-runners
+# 2. then add the post-renderer that removes ci-runners from the default binding
+kubectl apply -k examples/kubescape-operator/ci-runners/release
+kubectl get runtimerulealertbinding all-rules-all-pods -o jsonpath='{.spec.namespaceSelector.matchExpressions[0].values}'   # ends with ci-runners
+```
+
+With Flux: a Kustomization for `ci-runners/` with `dependsOn: [{name: kubescape}]`, then change the `kubescape` Kustomization's path from `flux` to `ci-runners/release`. Between the steps the namespace has both bindings, never none. Roll back in reverse order.
+
 ## Two things that are not obvious
 
 **The chart's bundled scanner is too old.** Chart 1.40.4 ships scanner v4.0.13, whose `all` framework scans fail with `framework 'C-0042' not found` against the current controls (fixed in v4.0.14, kubescape#3768). Every scheduled and operator-triggered scan uses `all`, so without the `kubescape.image.tag` override the operator installs cleanly and then produces no results. No metric shows it: the exporter keeps serving its gauges (0, or the last value), so watch the scanner's logs for `scanning failed` (`references/kubescape-operator.md`, Metrics).
@@ -57,7 +72,8 @@ Not run live: anything that needs the node-agent (runtime detection, container p
 ```bash
 flux suspend helmrelease kubescape -n kubescape        # stop reconciling, keep what runs
 git revert <commit> && flux resume helmrelease kubescape -n kubescape   # back to the previous values
-kubectl delete -k examples/kubescape-operator/flux      # remove; CRDs stay (delete them explicitly if wanted)
+kubectl get rules -n kubescape -o yaml > kubescape-rules.yaml   # export custom resources in the kubescape namespace first
+kubectl delete -k examples/kubescape-operator/flux      # removes the kubescape namespace and what is in it; CRDs stay
 ```
 
 ## See also

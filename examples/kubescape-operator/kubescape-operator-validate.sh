@@ -15,7 +15,9 @@ pass() { echo "  PASS: $1"; }
 fail() { echo "  FAIL: $1"; ERRORS=$((ERRORS + 1)); }
 
 FILES=(README.md flux/kustomization.yaml flux/namespace.yaml flux/helmrepository.yaml
-       flux/helmrelease.yaml security-exception.yaml runtime-rule-binding.yaml prometheusrule.yaml)
+       flux/helmrelease.yaml security-exception.yaml prometheusrule.yaml
+       ci-runners/kustomization.yaml ci-runners/runtime-rule-binding.yaml
+       ci-runners/release/kustomization.yaml ci-runners/release/helmrelease-postrenderer.yaml)
 
 echo ""
 echo "=== Kubescape operator example structure ==="
@@ -94,7 +96,7 @@ fi
 
 echo ""
 echo "=== SecurityException and runtime binding ==="
-if python3 -I - "$DIR/security-exception.yaml" "$DIR/runtime-rule-binding.yaml" <<'PY'
+if python3 -I - "$DIR/security-exception.yaml" "$DIR/ci-runners/runtime-rule-binding.yaml" <<'PY'
 import sys, yaml, datetime
 errors = []
 for doc in yaml.safe_load_all(open(sys.argv[1])):
@@ -132,11 +134,15 @@ done
 
 # node-agent v0.3.219 (Config.SkipNamespace) never traces pods in
 # excludeNamespaces, so a binding for an excluded namespace can never fire.
-# A namespace given its own binding must also be taken out of the chart's
-# all-rules-all-pods binding (a post-renderer patch), or both bindings apply.
-if python3 -I - "$DIR/runtime-rule-binding.yaml" "$DIR/flux/helmrelease.yaml" <<'PY'
+# The opt-in ci-runners/ narrowing has two steps: the binding (ci-runners/), then
+# release/ = base + a post-renderer removing the namespace from the default
+# binding. The base install must never remove a namespace (a fresh install would
+# leave it without runtime rules), and every removed namespace needs the binding.
+if python3 -I - "$DIR/ci-runners/runtime-rule-binding.yaml" "$DIR/flux/helmrelease.yaml" "$DIR/ci-runners/release/helmrelease-postrenderer.yaml" "$DIR/ci-runners/kustomization.yaml" "$DIR/ci-runners/release/kustomization.yaml" <<'PY'
 import sys, yaml
 binding = yaml.safe_load(open(sys.argv[1])); hr = yaml.safe_load(open(sys.argv[2]))
+patch_hr = yaml.safe_load(open(sys.argv[3]))
+step1 = yaml.safe_load(open(sys.argv[4])); step2 = yaml.safe_load(open(sys.argv[5]))
 vals = hr["spec"].get("values", {})
 excluded = {n.strip() for n in str(vals.get("excludeNamespaces", "")).split(",") if n.strip()}
 included = {n.strip() for n in str(vals.get("includeNamespaces", "")).split(",") if n.strip()}
@@ -151,16 +157,27 @@ if not targets: errors.append("binding must select namespaces by kubernetes.io/m
 for ns in sorted(targets):
     if ns in excluded: errors.append(f"{ns} is in excludeNamespaces: node-agent never traces it, the binding cannot fire")
     if included and ns not in included: errors.append(f"{ns} is not in includeNamespaces: node-agent never traces it")
-patched = set()
-for pr in hr["spec"].get("postRenderers", []) or []:
-    for p in (pr.get("kustomize") or {}).get("patches", []) or []:
-        t = p.get("target", {})
-        if t.get("kind") == "RuntimeRuleAlertBinding" and t.get("name") == "all-rules-all-pods":
-            for op in yaml.safe_load(p.get("patch", "[]")) or []:
-                if op.get("op") == "add" and str(op.get("path", "")).endswith("/values/-"):
-                    patched.add(op.get("value"))
+def removed(h):
+    out = set()
+    for pr in h.get("spec", {}).get("postRenderers", []) or []:
+        for p in (pr.get("kustomize") or {}).get("patches", []) or []:
+            t = p.get("target", {})
+            if t.get("kind") == "RuntimeRuleAlertBinding" and t.get("name") == "all-rules-all-pods":
+                for op in yaml.safe_load(p.get("patch", "[]")) or []:
+                    if op.get("op") == "add" and str(op.get("path", "")).endswith("/values/-"):
+                        out.add(op.get("value"))
+    return out
+if hr["spec"].get("postRenderers"):
+    errors.append("flux/helmrelease.yaml must not carry postRenderers: removing a namespace from the default binding belongs in the opt-in ci-runners/release step")
+if "runtime-rule-binding.yaml" not in (step1.get("resources") or []):
+    errors.append("ci-runners/kustomization.yaml (step 1) must apply runtime-rule-binding.yaml")
+if "../../flux" not in (step2.get("resources") or []) or not any(p.get("path") == "helmrelease-postrenderer.yaml" for p in step2.get("patches") or []):
+    errors.append("ci-runners/release/kustomization.yaml (step 2) must be ../../flux plus helmrelease-postrenderer.yaml")
+patched = removed(patch_hr)
 for ns in sorted(targets - patched):
-    errors.append(f"{ns} is still covered by all-rules-all-pods; add a postRenderers patch that adds it to that binding's NotIn list")
+    errors.append(f"{ns} is still covered by all-rules-all-pods in step 2; helmrelease-postrenderer.yaml must add it to that binding's NotIn list")
+for ns in sorted(patched - targets):
+    errors.append(f"step 2 removes {ns} from the default binding but runtime-rule-binding.yaml gives it no rules")
 if included: errors.append("this example's post-renderer patch assumes excludeNamespaces (the default binding uses NotIn); with includeNamespaces it uses In")
 for e in errors: print("    -", e)
 sys.exit(1 if errors else 0)
