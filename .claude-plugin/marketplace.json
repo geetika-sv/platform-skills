@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "platform-skills",
-      "version": "1.45.0",
+      "version": "1.45.1",
       "description": "Production-grade platform engineering handbook for Claude, Codex, and Cursor. 51 slash-command workflows: Kubernetes (baseline, RBAC, workload, debug), GitHub Actions (design, security, review, debug), Azure (Workload Identity, AKS, tagging, RBAC), OpenShift (SCC, Routes, GitOps, upgrades), Secrets (ESO, Sealed Secrets, rotation, audit), Helm, Terraform, Flux CD, Argo CD, Gateway API (ingress-nginx migration), AWS, Kyverno, OPA, KEDA, Karpenter, cluster upgrades (EKS version rollback), Flagger progressive delivery, Velero backup and restore drills, FinOps (Infracost, cost tags, OpenCost), supply chain security, Kubescape posture and operator (NSA, MITRE, CIS, SOC2), Falco, chaos engineering, DORA metrics, Datadog, Dynatrace, Linkerd, AWS MCP, Renovate, Checkov, Trivy, Zizmor workflow auditing, Kingfisher secret scanning and revocation, token optimization, and multi-agent scaffolding. Every answer includes blast radius, validation steps, and rollback plan.",
       "author": {
         "name": "Nitin Jain"
@@ -193,15 +193,17 @@
         "protected-paths"
       ],
       "source": {
-        "source": "url",
+        "source": "git-subdir",
         "url": "https://github.com/nitinjain999/platform-skills.git",
-        "sha": "108182202966db86b282c9ed10a9005a0001bc80"
+        "path": "plugins/platform-skills",
+        "ref": "main",
+        "sha": "125cb09e7c717fdc56dfceacd456583dc9903689"
       },
       "homepage": "https://github.com/nitinjain999/platform-skills"
     },
     {
       "name": "platform-guardrails",
-      "version": "1.45.0",
+      "version": "1.45.1",
       "description": "Optional enforcing hooks for platform-skills: self-improve lifecycle capture and the ai-governance policy gate (active only in projects with a .ai-governance.yaml). Separate from platform-skills because plugin hooks run in every session for everyone who enables them.",
       "author": {
         "name": "Nitin Jain"
@@ -213,7 +215,7 @@
         "url": "https://github.com/nitinjain999/platform-skills.git",
         "path": "plugins/platform-guardrails",
         "ref": "main",
-        "sha": "108182202966db86b282c9ed10a9005a0001bc80"
+        "sha": "125cb09e7c717fdc56dfceacd456583dc9903689"
       },
       "homepage": "https://github.com/nitinjain999/platform-skills"
     }

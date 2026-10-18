@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The marketplace installs `platform-skills` from `plugins/platform-skills`.** Since #242, the entry is a `git-subdir` source pinned to the 1.45.1 content commit, not the whole repository. Installs get the same 410 files the plugin directory reviews, and no repository-root `CLAUDE.md`. The pin PR could not carry this note: `release.yml` rejects a tag if anything but `marketplace.json` differs from the pin.
+
+### Fixed
+
+- **The composite-actions "safe" injection example sent a token in a URL.** In `skills/composite-actions`, the ✅ example passed `inputs.token` through `env:` correctly, then sent it as `?token=` in a query string, where server and proxy logs keep it. The directory scan also flagged it as reading a credential and sending it to `example.com`. The example now deploys a Helm chart into `inputs.namespace`, a non-secret input. Both steps gained the `shell: bash` that composite-action `run:` steps require. A line after the example says to pass a secret the same way and send it in a request header.
+
+## [1.45.1] - 2026-10-18
+
+Moves the plugin directory listing to a plugin-only folder, `plugins/platform-skills/`, small enough for the directory to inspect every file, and fixes the Renovate GitHub Actions group.
+
 ### Added
 
 - **`plugins/platform-skills/`, a plugin-only folder for the plugin directory.** The directory held v1.45.0 under "Files or downloads the validator couldn't inspect". It scans the whole submitted folder, which was the repository root: over 900 files against its 512-file limit. The website, evals, tests, plans and demo recordings were in the scan, and none of them ship. `scripts/build-plugin.sh` now generates the folder:
@@ -30,6 +42,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Two links in `examples/agent-self-improve/HOW_IT_WORKS.md` left the plugin folder.** They pointed at the repository's root guides with `../../`, and now use their GitHub URLs.
 - **Renovate's GitHub Actions group failed with "Error updating branch: update failure".** The group rule sets `pinDigests: true` for everything the github-actions manager extracts, including tool versions passed as action inputs (depType `uses-with`). #219 brought `cosign-release: v3.1.3` in `examples/kubescape/workflows/kubescape.yml` into scope, and Renovate tried to pin it to a commit digest. A `with:` value has nowhere to put a digest, so the update could not be written ("Digest is not updated" in the job log). That failed the whole group branch, along with every real update in it. `uses-with` dependencies now have `pinDigests: false`; their version updates still apply.
 - **The placeholder Copilot setup-steps template is no longer scanned.** Every `uses:` ref in `assets/copilot-setup-steps.template.yml` is a placeholder that `setup-agents` fills in, so Renovate has nothing to update there. The template is out of the github-actions patterns, and `assets/*.template.*` is listed in `ignorePaths` (#236).
+
+### Changed
+
+- Dependency updates. All of them are in examples only, and no skill behaviour changes:
+  - The example workflows' GitHub Actions: anchore/sbom-action v0.24.3, aquasecurity/trivy-action v0.36.0, aws-actions/configure-aws-credentials v6.3.0, bridgecrewio/checkov-action v12.3134.0, docker/build-push-action v7.4.0, docker/login-action v4.6.0, docker/metadata-action v6.2.0, docker/setup-buildx-action v4.4.1, fluxcd/flux2/action v2.9.6, github/codeql-action v4.39.0, hashicorp/setup-terraform v4.0.1, sigstore/cosign-installer v4.1.2, terraform-linters/setup-tflint v6.3.2 and the slsa-github-generator container workflow v2.1.0 (#238)
+  - Node.js 24 in the fixed supply-chain demo workflow (was 18) (#239)
 
 ## [1.45.0] - 2026-10-18
 
