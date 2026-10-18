@@ -73,6 +73,36 @@ for field in "^name:" "^description:"; do
 done
 
 echo ""
+echo "=== Plugin directory icon ==="
+
+# Anthropic's directory takes the listing icon from .claude-plugin/icon.png:
+# a square PNG, 512 to 2048 px per side, under 2 MB (SVG and WebP are refused).
+ICON=".claude-plugin/icon.png"
+if [ -f "$ICON" ]; then
+  if ICON_INFO="$(python3 -I - "$ICON" <<'PY'
+import os, struct, sys
+path = sys.argv[1]
+with open(path, "rb") as f:
+    head = f.read(24)
+if head[:8] != b"\x89PNG\r\n\x1a\n" or head[12:16] != b"IHDR":
+    sys.exit("not a PNG")
+w, h = struct.unpack(">II", head[16:24])
+size = os.path.getsize(path)
+if w != h: sys.exit(f"not square: {w}x{h}")
+if not 512 <= w <= 2048: sys.exit(f"{w}px is outside 512-2048")
+if size >= 2 * 1024 * 1024: sys.exit(f"{size} bytes is not under 2 MB")
+print(f"{w}x{h} PNG, {size // 1024} KB")
+PY
+)"; then
+    pass "$ICON is a valid listing icon ($ICON_INFO)"
+  else
+    fail "$ICON is not a valid listing icon"
+  fi
+else
+  fail "$ICON missing (the directory listing has no icon)"
+fi
+
+echo ""
 echo "=== Reference files ==="
 
 REQUIRED_REFERENCES=(
