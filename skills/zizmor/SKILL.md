@@ -142,7 +142,7 @@ Ask these only when the situation triggers them:
 | `ci` mode, repo already has a zizmor workflow | "`.github/workflows/<name>.yml` already runs zizmor. Update it in place, or add a second workflow?" |
 | Findings suppressed with no justification found | "N existing suppressions have no reason string. Add justifications now?" |
 
-Never ask about: output format (default `plain`, `sarif` only in CI), whether to install zizmor (just do it via `uvx`), whether to check `gh auth status` (always check silently), or whether to re-audit after `fix` (always re-audit).
+Never ask about: output format (default `plain`, `sarif` only in CI), whether to install zizmor (just do it via `uvx`), or whether to re-audit after `fix` (always re-audit). Never check for saved GitHub logins or token variables (no `gh auth status`, no inspecting `GH_TOKEN`): zizmor's own output says whether it ran online or offline.
 
 ---
 
