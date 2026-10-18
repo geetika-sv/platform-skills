@@ -149,6 +149,12 @@ jobs:
         # release on two false positives.
         run: bash tests/scan-secrets.sh
 
+      - name: Check the plugin folder is a fresh build
+        # The plugin directory lists plugins/platform-skills/, which
+        # scripts/build-plugin.sh generates. A tag whose folder lags the source
+        # would publish the previous release's content under this version.
+        run: bash tests/plugin-folder.sh --strict
+
   quality-checks:
     name: Quality Checks
     runs-on: ubuntu-latest

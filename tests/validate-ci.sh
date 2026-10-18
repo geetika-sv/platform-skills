@@ -196,6 +196,8 @@ done
 echo ""
 echo "=== Internal Markdown link targets ==="
 
+# skills/ is skipped in both places it lives: the source and its generated copy
+# in plugins/platform-skills/ (scripts/build-plugin.sh).
 BROKEN=0
 while IFS= read -r md_file; do
   dir="$(dirname "$md_file")"
@@ -223,6 +225,7 @@ done < <(find . -name "*.md" \
   ! -path "./.git/*" \
   ! -path "./node_modules/*" \
   ! -path "./skills/*" \
+  ! -path "./plugins/platform-skills/skills/*" \
   | sort)
 
 if [ "$BROKEN" -eq 0 ]; then

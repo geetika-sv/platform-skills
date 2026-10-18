@@ -7,8 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`plugins/platform-skills/`, a plugin-only folder for the plugin directory.** The directory held v1.45.0 under "Files or downloads the validator couldn't inspect". It scans the whole submitted folder, which was the repository root: over 900 files against its 512-file limit. The website, evals, tests, plans and demo recordings were in the scan, and none of them ship. `scripts/build-plugin.sh` now generates the folder:
+  - the manifest, icon, `LICENSE` and `NOTICE`;
+  - a plugin `README.md` that says what the plugin runs, sends and fetches, with its command list generated from each skill's frontmatter;
+  - `skills/`, `references/`, `agents/` and `assets/`;
+  - the 267 of 462 example files that shipped content names.
+
+  That comes to 410 files, all text except the icon, none over 256 KiB. `claude plugin validate --strict` passes on it with no warnings, since no root `CLAUDE.md` comes along. `tests/plugin-folder.sh` gates the folder:
+  - the directory's file, size and binary limits, plus names that stop validation;
+  - a README and a license;
+  - every `$CLAUDE_PLUGIN_ROOT` path a skill runs, present in the folder;
+  - a fresh rebuild, compared strictly on a PR that touches the folder or the root manifest, and on every release tag.
+
+  Renovate ignores the copy, and the release PR rebuilds it (CONTRIBUTING.md, "The plugin folder"). The listing needs a new directory submission with plugin path `plugins/platform-skills`, because a submission's folder cannot change.
+
 ### Fixed
 
+- **The checkov skill said private modules resolve "via gh CLI".** Since 1.45.0 they resolve only with a `GITHUB_PAT` the user exports. The description now says so, and the plugin README's command list quotes it.
+- **The token-optimizer benchmark pointed at fixtures an installed plugin lacks.** `evals/token-optimizer/` is a repository suite, so benchmark mode now says to run from a clone and stops if the manifest is missing.
+- **Two links in `examples/agent-self-improve/HOW_IT_WORKS.md` left the plugin folder.** They pointed at the repository's root guides with `../../`, and now use their GitHub URLs.
 - **Renovate's GitHub Actions group failed with "Error updating branch: update failure".** #219 added `assets/copilot-setup-steps.template.yml` to the github-actions manager's patterns, but every `uses:` ref in that template is a placeholder that `setup-agents` fills in (`hashicorp/setup-terraform@__SETUP_TERRAFORM_SHA__  # v__SETUP_TERRAFORM_VERSION__`). Renovate read each placeholder as a branch name, tried to pin it to a digest, then could not re-read the edited line ("Could not autoReplace"). That failed the whole group branch, along with every real update in it. The template is out of the patterns and listed in `ignorePaths`.
 
 ## [1.45.0] - 2026-10-18

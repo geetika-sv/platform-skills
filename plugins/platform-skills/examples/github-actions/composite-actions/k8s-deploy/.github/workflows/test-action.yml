@@ -1,0 +1,264 @@
+name: Test k8s-deploy action
+
+on:
+  push:
+    paths:
+      - 'action.yml'
+      - 'scripts/**'
+      - '.github/workflows/test-action.yml'
+  pull_request:
+    paths:
+      - 'action.yml'
+      - 'scripts/**'
+
+# act usage:
+#   act -W .github/workflows/test-action.yml \
+#       -P ubuntu-latest=catthehacker/ubuntu:act-22.04
+
+# Workflow level grants only what every job needs. id-token: write is granted per
+# job, on the three jobs that actually reach the OIDC exchange — a workflow level
+# grant would hand a signed identity token to every other job too, and any
+# third-party step in those jobs could trade it for cloud credentials.
+permissions:
+  contents: read
+
+jobs:
+  # Test 1 — missing cloud_provider fails input validation
+  test-missing-cloud-provider:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Run with missing cloud_provider — expect failure
+        id: deploy
+        uses: ./
+        with:
+          cloud_provider: ''
+          namespace: production
+          manifest_path: deploy/
+        continue-on-error: true
+      - name: Assert failure
+        shell: bash
+        run: |
+          [[ "${{ steps.deploy.outcome }}" == "failure" ]] || \
+            { echo "::error::Expected failure for missing cloud_provider"; exit 1; }
+          echo "::notice::Validation correctly rejected missing cloud_provider"
+
+  # Test 2 — cloud_provider=aws with missing aws_role_arn fails
+  test-aws-missing-role-arn:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Run with aws but no role ARN — expect failure
+        id: deploy
+        uses: ./
+        with:
+          cloud_provider: aws
+          aws_cluster_name: my-cluster
+          aws_region: us-east-1
+          namespace: production
+          manifest_path: deploy/
+        continue-on-error: true
+      - name: Assert failure
+        shell: bash
+        run: |
+          [[ "${{ steps.deploy.outcome }}" == "failure" ]] || \
+            { echo "::error::Expected failure for missing aws_role_arn"; exit 1; }
+          echo "::notice::Validation correctly rejected missing aws_role_arn"
+
+  # Test 3 — cloud_provider=azure with missing azure_client_id fails
+  test-azure-missing-client-id:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Run with azure but no client ID — expect failure
+        id: deploy
+        uses: ./
+        with:
+          cloud_provider: azure
+          azure_cluster_name: my-aks-cluster
+          azure_resource_group: my-rg
+          azure_tenant_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+          azure_subscription_id: 'ffffffff-0000-1111-2222-333333333333'
+          namespace: production
+          manifest_path: deploy/
+        continue-on-error: true
+      - name: Assert failure
+        shell: bash
+        run: |
+          [[ "${{ steps.deploy.outcome }}" == "failure" ]] || \
+            { echo "::error::Expected failure for missing azure_client_id"; exit 1; }
+          echo "::notice::Validation correctly rejected missing azure_client_id"
+
+  # Test 4 — missing namespace fails regardless of cloud provider
+  test-missing-namespace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Run with empty namespace — expect failure
+        id: deploy
+        uses: ./
+        with:
+          cloud_provider: aws
+          aws_role_arn: 'arn:aws:iam::123456789012:role/github-actions-deploy'
+          aws_cluster_name: my-cluster
+          aws_region: us-east-1
+          namespace: ''
+          manifest_path: deploy/
+        continue-on-error: true
+      - name: Assert failure
+        shell: bash
+        run: |
+          [[ "${{ steps.deploy.outcome }}" == "failure" ]] || \
+            { echo "::error::Expected failure for empty namespace"; exit 1; }
+          echo "::notice::Validation correctly rejected empty namespace"
+
+  # Test 5 — invalid timeout format fails
+  test-invalid-timeout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Run with bad timeout — expect failure
+        id: deploy
+        uses: ./
+        with:
+          cloud_provider: aws
+          aws_role_arn: 'arn:aws:iam::123456789012:role/github-actions-deploy'
+          aws_cluster_name: my-cluster
+          aws_region: us-east-1
+          namespace: production
+          manifest_path: deploy/
+          timeout: '5minutes'   # must be 5m / 300s / 1h
+        continue-on-error: true
+      - name: Assert failure
+        shell: bash
+        run: |
+          [[ "${{ steps.deploy.outcome }}" == "failure" ]] || \
+            { echo "::error::Expected failure for invalid timeout format"; exit 1; }
+          echo "::notice::Validation correctly rejected invalid timeout"
+
+  # Test 6 — AWS/EKS inputs pass validation; action fails at OIDC exchange in CI
+  test-aws-input-validation-passes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # this job reaches the OIDC credential exchange
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: All EKS inputs valid — will fail at OIDC step without real AWS trust
+        id: deploy
+        uses: ./
+        with:
+          cloud_provider: aws
+          aws_role_arn: 'arn:aws:iam::123456789012:role/github-actions-deploy'
+          aws_cluster_name: my-eks-cluster
+          aws_region: us-east-1
+          namespace: production
+          manifest_path: deploy/
+          dry_run: 'true'
+        continue-on-error: true
+      - name: Assert input validation passed (OIDC failure is expected in CI)
+        shell: bash
+        run: |
+          echo "::notice::Outcome: ${{ steps.deploy.outcome }} — validation passed, expected OIDC failure without real AWS trust"
+
+  # Test 7 — Azure/AKS inputs pass validation; action fails at OIDC exchange in CI
+  test-azure-input-validation-passes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # this job reaches the OIDC credential exchange
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: All AKS inputs valid — will fail at OIDC step without real Azure federated credential
+        id: deploy
+        uses: ./
+        with:
+          cloud_provider: azure
+          azure_client_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+          azure_tenant_id: 'ffffffff-0000-1111-2222-333333333333'
+          azure_subscription_id: '11111111-2222-3333-4444-555555555555'
+          azure_cluster_name: my-aks-cluster
+          azure_resource_group: my-rg
+          namespace: production
+          manifest_path: deploy/
+          dry_run: 'true'
+        continue-on-error: true
+      - name: Assert input validation passed (OIDC failure is expected in CI)
+        shell: bash
+        run: |
+          echo "::notice::Outcome: ${{ steps.deploy.outcome }} — validation passed, expected OIDC failure without real Azure federated credential"
+
+  # Test 8 — GKE without gcp_workload_identity_provider fails
+  test-gke-missing-provider:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Run GKE without workload_identity_provider — expect failure
+        id: deploy
+        uses: ./
+        with:
+          cloud_provider: gke
+          gcp_service_account: 'deployer@my-project.iam.gserviceaccount.com'
+          gcp_project: my-project
+          gcp_cluster_name: my-gke-cluster
+          gcp_cluster_location: us-central1
+          namespace: production
+          manifest_path: deploy/
+        continue-on-error: true
+      - name: Assert failure
+        shell: bash
+        run: |
+          [[ "${{ steps.deploy.outcome }}" == "failure" ]] || \
+            { echo "::error::Expected failure when gcp_workload_identity_provider is missing"; exit 1; }
+          echo "::notice::Validation correctly rejected missing gcp_workload_identity_provider"
+
+  # Test 9 — GKE without gcp_cluster_name fails
+  test-gke-missing-cluster:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Run GKE without gcp_cluster_name — expect failure
+        id: deploy
+        uses: ./
+        with:
+          cloud_provider: gke
+          gcp_workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/github/providers/github-provider'
+          gcp_service_account: 'deployer@my-project.iam.gserviceaccount.com'
+          gcp_project: my-project
+          gcp_cluster_location: us-central1
+          namespace: production
+          manifest_path: deploy/
+        continue-on-error: true
+      - name: Assert failure
+        shell: bash
+        run: |
+          [[ "${{ steps.deploy.outcome }}" == "failure" ]] || \
+            { echo "::error::Expected failure when gcp_cluster_name is missing"; exit 1; }
+          echo "::notice::Validation correctly rejected missing gcp_cluster_name"
+
+  # Test 10 — GKE/WIF inputs pass validation; action fails at OIDC exchange in CI
+  test-gke-input-validation-passes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # this job reaches the OIDC credential exchange
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: All GKE inputs valid — will fail at OIDC step without real WIF trust
+        id: deploy
+        uses: ./
+        with:
+          cloud_provider: gke
+          gcp_workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/github/providers/github-provider'
+          gcp_service_account: 'deployer@my-project.iam.gserviceaccount.com'
+          gcp_project: my-project
+          gcp_cluster_name: my-gke-cluster
+          gcp_cluster_location: us-central1
+          namespace: production
+          manifest_path: deploy/
+          dry_run: 'true'
+        continue-on-error: true
+      - name: Assert input validation passed (OIDC failure is expected in CI)
+        shell: bash
+        run: |
+          echo "::notice::Outcome: ${{ steps.deploy.outcome }} — validation passed, expected OIDC failure without real WIF trust"

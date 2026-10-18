@@ -1,6 +1,6 @@
 ---
 name: checkov
-description: Bootstrap Checkov on a developer laptop, run static or plan-level Terraform security scanning for AWS/Azure/GCP/EKS, resolve private GitHub modules via gh CLI, generate pre-commit hooks, produce multi-format output (cli/json/sarif/junit), and fix violations with AI-generated patches. Use when asked to "scan my Terraform", "run checkov", "check my IaC for security issues", "set up checkov pre-commit", or "fix checkov findings".
+description: Bootstrap Checkov on a developer laptop, run static or plan-level Terraform security scanning for AWS/Azure/GCP/EKS, resolve private GitHub modules with a GITHUB_PAT you export, generate pre-commit hooks, produce multi-format output (cli/json/sarif/junit), and fix violations with AI-generated patches. Use when asked to "scan my Terraform", "run checkov", "check my IaC for security issues", "set up checkov pre-commit", or "fix checkov findings".
 argument-hint: "[static|plan|secrets|audit|multi|baseline|fix|scaffold] [path]"
 title: "Checkov Command"
 sidebar_label: "checkov"
