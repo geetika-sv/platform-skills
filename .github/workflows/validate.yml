@@ -19,6 +19,9 @@ on:
       - '**Pipfile.lock'
       - '**pyproject.toml'
       - '**poetry.lock'
+      # Every file of the generated plugin folder, whatever its extension (.tmpl,
+      # .py, .rego, the icon): a change there must reach the strict rebuild check.
+      - 'plugins/platform-skills/**'
   push:
     branches:
       - main
@@ -37,6 +40,9 @@ on:
       - '**Pipfile.lock'
       - '**pyproject.toml'
       - '**poetry.lock'
+      # Every file of the generated plugin folder, whatever its extension (.tmpl,
+      # .py, .rego, the icon): a change there must reach the strict rebuild check.
+      - 'plugins/platform-skills/**'
 
 concurrency:
   group: validate-${{ github.head_ref || github.ref_name }}
