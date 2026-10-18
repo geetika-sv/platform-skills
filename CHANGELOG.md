@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Renovate's GitHub Actions group failed with "Error updating branch: update failure".** #219 added `assets/copilot-setup-steps.template.yml` to the github-actions manager's patterns, but every `uses:` ref in that template is a placeholder that `setup-agents` fills in (`hashicorp/setup-terraform@__SETUP_TERRAFORM_SHA__  # v__SETUP_TERRAFORM_VERSION__`). Renovate read each placeholder as a branch name, tried to pin it to a digest, then could not re-read the edited line ("Could not autoReplace"). That failed the whole group branch, along with every real update in it. The template is out of the patterns and listed in `ignorePaths`.
+
+## [1.45.0] - 2026-10-18
+
+Clears the plugin directory review (no machine credentials, a marketplace description, a listing icon) and makes Renovate cover every pinned version in the repository, then lands the first batch of updates it found.
+
+### Fixed
+
 - **The marketplace had no description.** `.claude-plugin/marketplace.json` carried only `name`, `owner` and `plugins`, so `claude plugin validate --strict` failed on the marketplace manifest ("No marketplace description provided"). It now has a top-level `description`, as the official Claude plugins marketplace does.
 - **The plugin had no listing icon.** `.claude-plugin/icon.png` is the GitHub Pages logo (`website/static/img/logo.svg`) rendered to a 1024×1024 PNG with headless Chrome, so the directory listing and the docs site match. `tests/validate-skill.sh` checks it stays a square PNG of 512–2048 px under 2 MB.
 - **The plugin read GitHub credentials from the user's machine.** The directory review held the plugin for reading a credential instead of asking for it. `skills/zizmor`, `references/zizmor.md`, `references/trivy.md`, `references/checkov.md`, `references/setup-agents-schemas.md` and `examples/compliance/checkov-terraform-plan.sh` derived a token with `$(gh auth token)`. None of them do now. Each tool reads the variable the user sets in their own shell: zizmor reads `GH_TOKEN`, `GITHUB_TOKEN` or `ZIZMOR_GITHUB_TOKEN` and runs offline without one (v1.29.0 `cli.rs`); Trivy reads `TRIVY_USERNAME`/`TRIVY_PASSWORD` and, for private repositories, `GITHUB_TOKEN`; the Checkov script uses a `GITHUB_PAT` the user exported and stops with instructions otherwise. A `sensitive` userConfig option, the directory's generic suggestion, cannot reach a skill: Claude Code substitutes only non-sensitive values into skill content and exports `CLAUDE_PLUGIN_OPTION_*` only to hooks.
@@ -21,6 +29,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Duplicate Terraform PRs.** `terraform_version` was extracted twice, as `terraform` by the github-actions manager and as `hashicorp/terraform` by the custom manager, so one version line could get two PRs. The github-actions copy is disabled. The custom manager now also reads gh-aw `.md` sources, where the Renovate Gate pins Terraform 1.15.8.
 - **Fixtures that are outdated or broken on purpose are now ignored.** These are the eval evidence, the pr-review and triage scenarios, and the demo `bad.*` files. The two custom managers that matched nothing (the "Flux CLI (…)" and "Kubernetes cluster (…)" doc regexes) are removed.
 - **New gate: `tests/renovate-coverage.sh`.** `tests/handbook-consistency.sh` now runs it. It fails on an unannotated `*_VERSION:` pin, an annotation with no value below it, or a download URL that hard-codes a release version. It also fails on an empty scan.
+- **The velero plugin image was detected twice.** The flux manager reads images in HelmRelease values, and the kubernetes manager pattern also matched the velero HelmRelease, so one bump opened two PRs (#225, #226). The kubernetes pattern no longer lists HelmRelease files (#233).
+- **The Gateway API validator rejected every patch release.** `examples/gateway-api/gateway-api-validate.sh` required exactly `v1.6.1` and `v1.9.2`, so the Gateway API v1.6.3 bump failed CI. It now accepts any tag on the pinned lines (Gateway API v1.6.x, Envoy Gateway v1.9.x) and requires the Envoy Gateway CRDs to match the controller's tag exactly. A minor bump of either still fails on purpose, because it needs a compatibility check first.
+- **The kubescape-operator example was back on a pre-release chart.** The Renovate PR #223 moved it to `1.40.5`, which GitHub still marks as a pre-release (the Helm index has no pre-release flag). That contradicted `references/kubescape-operator.md`, which pins `1.40.4` for exactly this reason. The example is back on `1.40.4`, and a `renovate.json` rule excludes 1.40.5 until a stable release ships.
+
+### Changed
+
+- Dependency updates from the wider Renovate coverage. All of them are in examples or CI only, and no skill behaviour changes:
+  - Gateway API v1.6.3 (#222)
+  - Terraform 1.16.6 in the Renovate Gate (was 1.15.8; lock recompiled) and in the `terraform-cicd` example (was 1.7.0) (#228)
+  - yq v4.54.1, with its checksum updated by Renovate (#229)
+  - zizmor 1.31.1 (#230)
+  - flux CLI 2.9.6 in the flux-sync example (#227)
+  - opencost chart 2.5.33 (#224)
+  - velero-plugin-for-aws v1.14.4 (#225, #226)
+  - nginx 1.31.7 in the basic-monorepo app (#226)
+  - The example workflows' GitHub Actions majors: checkout v7, setup-node v7, github-script v9, configure-aws-credentials v6, build-push-action v7, login-action v4, codeql-action v4, infracost/actions v5, cosign-installer v4, and the `ubuntu-26.04` runner for the Kubescape workflow (#231)
 
 ## [1.44.1] - 2026-10-17
 

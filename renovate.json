@@ -25,12 +25,11 @@
     "assignees": ["nitinjain999"]
   },
   "github-actions": {
-    "description": "Example workflows that live outside .github/workflows. Patterns add to the manager's defaults, which only see .github/workflows and action.yml.",
+    "description": "Example workflows that live outside .github/workflows. Patterns add to the manager's defaults, which only see .github/workflows and action.yml. assets/copilot-setup-steps.template.yml is deliberately absent (and in ignorePaths): its refs are __PLACEHOLDER__ tokens that setup-agents fills in, and Renovate's attempt to pin them failed the whole GitHub Actions group with 'update failure'.",
     "managerFilePatterns": [
       "/^examples/(ai-governance|awesome-docs|finops/workflows|kubescape/workflows|supply-chain)/[^/]+\\.ya?ml$/",
       "/^examples/github-actions/(reusable-workflows/)?[^/]+\\.ya?ml$/",
-      "/^examples/demo/github-actions-supply-chain/fixed\\.yml$/",
-      "/^assets/copilot-setup-steps\\.template\\.yml$/"
+      "/^examples/demo/github-actions-supply-chain/fixed\\.yml$/"
     ]
   },
   "flux": {
@@ -44,10 +43,9 @@
     ]
   },
   "kubernetes": {
-    "description": "Manifests with real, public images. The kubernetes manager matches nothing by default; the other example manifests use placeholder registries.",
+    "description": "Manifests with real, public images. The kubernetes manager matches nothing by default; the other example manifests use placeholder registries. Do not add HelmRelease files: the flux manager already extracts images from their values, and a second extraction opens a duplicate PR (#225 next to #226).",
     "managerFilePatterns": [
-      "/^examples/fluxcd/basic-monorepo/apps/base/my-app/deployment\\.yaml$/",
-      "/^examples/backup-dr/velero/helmrelease\\.yaml$/"
+      "/^examples/fluxcd/basic-monorepo/apps/base/my-app/deployment\\.yaml$/"
     ]
   },
   "packageRules": [
@@ -124,6 +122,11 @@
       "allowedVersions": "<7"
     },
     {
+      "description": "kubescape-operator 1.40.5 is a GitHub pre-release, but the Helm index has no pre-release flag, so Renovate offered it as stable (#223). references/kubescape-operator.md pins 1.40.4 for that reason. Drop this rule once a stable release after 1.40.4 ships.",
+      "matchPackageNames": ["kubescape-operator"],
+      "allowedVersions": "!/^1\\.40\\.5$/"
+    },
+    {
       "description": "Python packages — minor/patch, merged by renovate-gate",
       "matchManagers": ["pip_requirements", "pip-compile", "pipenv", "poetry"],
       "automerge": false,
@@ -188,6 +191,7 @@
     "evals/**",
     "examples/pr-review/**",
     "examples/triage/**",
-    "examples/demo/**/bad.*"
+    "examples/demo/**/bad.*",
+    "assets/*.template.*"
   ]
 }
