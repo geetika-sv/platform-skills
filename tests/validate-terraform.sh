@@ -25,10 +25,14 @@ cd "$ROOT_DIR"
 # Sweeping them would force every fixture to grow scaffolding unrelated to the
 # discovery question it measures, and would run `terraform init` with a provider
 # download once per fixture.
+#
+# plugins/platform-skills/ is skipped too: its examples are copies that
+# scripts/build-plugin.sh takes from examples/, which this already validates.
 TF_DIRS=$(find . -type f -name "*.tf" \
   ! -path "./.git/*" \
   ! -path "./examples/demo/*" \
   ! -path "./evals/*/evidence/*" \
+  ! -path "./plugins/platform-skills/*" \
   ! -path "*/.terraform/*" \
   -exec dirname {} \; | sort -u)
 

@@ -464,6 +464,8 @@ The dry run writes no log and no state. Verify by checking that `.token-optimize
 
 Orchestrate isolated fixture runs across four arms, compare token usage. Three runs per task, randomized order, declared cache state, appending JSONL.
 
+The fixtures in `evals/token-optimizer/` live in the platform-skills repository, not in the installed plugin. Run benchmark from a clone of https://github.com/nitinjain999/platform-skills; if `evals/token-optimizer/manifest.json` is missing from the working directory, say so and stop.
+
 Steps:
 
 1. Confirm which fixture suite to run. Offer `all` plus the manifest's actual family ids, derived rather than hardcoded: `jq -r '[.tasks[].family] | unique | .[]' evals/token-optimizer/manifest.json` yields `difficult-reasoning-control`, `github-actions`, `helm-gitops`, `scanner-results`, `small-task-control`, `source-navigation`, `terraform-discovery`.

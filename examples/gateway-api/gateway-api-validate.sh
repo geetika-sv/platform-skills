@@ -112,10 +112,11 @@ echo ""
 echo "=== Repository: no manifest still depends on ingress-nginx ==="
 
 # Excluded on purpose: the frozen token-optimizer eval fixtures (changing them
-# breaks baseline comparability) and the migration example's "before" state.
+# breaks baseline comparability), the migration example's "before" state, and
+# plugins/platform-skills/, the generated copy of examples/ this scan covers.
 STALE="$(cd "$ROOT_DIR" && grep -rIl --include='*.yaml' --include='*.yml' 'ingress-nginx' . \
   --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.claude \
-  | grep -v -E '^\./(evals/token-optimizer/|examples/gateway-api/before/)' || true)"
+  | grep -v -E '^\./(evals/token-optimizer/|examples/gateway-api/before/|plugins/platform-skills/)' || true)"
 if [ -z "$STALE" ]; then
   pass "no manifest outside the allowlist references ingress-nginx"
 else

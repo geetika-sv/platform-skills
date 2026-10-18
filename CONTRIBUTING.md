@@ -374,6 +374,10 @@ Platform Skills uses automated GitHub Actions workflows for releases.
    
    # Update CHANGELOG.md
    vim CHANGELOG.md  # Add [X.Y.Z] section with changes
+
+   # Rebuild the folder the plugin directory lists, after the version bump
+   bash scripts/build-plugin.sh
+   bash tests/plugin-folder.sh --strict
    
    # Commit
    git add .
@@ -426,9 +430,26 @@ Before creating a tag:
 - [ ] Version updated in `.claude-plugin/marketplace.json` (every plugin's `version`)
 - [ ] Every plugin's `source.sha` in `.claude-plugin/marketplace.json` set to the content merge commit, in a PR that touches only that file. Not managed by Renovate; `bash tests/marketplace-pins.sh --release <tag-commit>` is what `release.yml` runs
 - [ ] CHANGELOG.md updated with release notes
+- [ ] `plugins/platform-skills/` rebuilt in the release PR (`bash scripts/build-plugin.sh`); `bash tests/plugin-folder.sh --strict` passes, and `release.yml` runs it again on the tag
 - [ ] All CI checks passing
 - [ ] Examples tested locally
 - [ ] Documentation reviewed
+
+#### The plugin folder
+
+The plugin directory lists `plugins/platform-skills/`, not the repository root. The root holds over 900 files, and the directory holds any version over 512 for review. `scripts/build-plugin.sh` generates the folder from the source:
+
+- the root manifest without `experimental`, plus the icon
+- `README.md`, built from `scripts/plugin-readme.md` plus a command list taken from each skill's frontmatter
+- `LICENSE` and `NOTICE`
+- `skills/`, `references/`, `agents/` and `assets/` in full
+- only the files in `examples/` that shipped content names
+
+Rules:
+
+- **Edit the source, never the folder.** A PR that touches the folder or `.claude-plugin/plugin.json` runs `tests/plugin-folder.sh --strict`, which fails on anything but an exact rebuild.
+- **Rebuild only in the release PR.** Between releases the folder lags the source on purpose. The directory follows `main`, so a rebuild in between would publish unreleased content under the previous version. Renovate ignores the folder for the same reason.
+- **Stay inside the directory's limits.** The folder must stay at or under 480 files, keep every non-image file under 256 KiB, and contain no binary except images. A shipped file that names a new example adds it to the folder. If a new domain pushes the count past the budget, the check says so before the directory does.
 
 #### Marketplace Publication
 
