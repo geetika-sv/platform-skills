@@ -39,7 +39,7 @@ These rules are non-negotiable. Every implementation path must honour them.
 | Always install `trap cleanup EXIT INT TERM` before generating plan files | Plan files may contain secrets. A trap ensures `tfplan.binary` and `tfplan.json` are deleted even on error, Ctrl+C, or SIGTERM. Only skip deletion when `--keep-plan` is explicitly set. |
 | Never report CLEAN when Checkov exits 2 | Exit 2 means a tool error — bad flag, version mismatch, parse failure. Treating it as CLEAN silently passes a broken gate. Always emit `Result: ERROR` and exit non-zero. |
 | No implicit network calls — local by default | Several Checkov operations hit the network: `--download-external-modules` fetches remote modules, `sca_package`/`sca_image` call a vulnerability DB, `--upload-sarif` posts to GitHub. Locally, default to no upload and no SCA. In CI, all networked operations must be explicit flags. Never enable `--download-external-modules` or SCA frameworks silently. |
-| Never print or log tokens | `GITHUB_PAT=$(gh auth token)` must never be echoed. Scope the export to the Checkov process only (`GITHUB_PAT="..." checkov ...`) rather than exporting it to the whole shell session. |
+| Never derive, print or log tokens | The skill never creates a token. `GITHUB_PAT` comes from the user's own shell; the script passes it inline to the Checkov and Terraform processes only (`GITHUB_PAT="..." checkov ...`) and never echoes it. |
 | Use `git rev-parse --show-toplevel` for repo-root operations | Terraform root and git root are not always the same (e.g., `--root terraform/aws`). `.gitignore` updates, SARIF upload `git` calls, and output-path decisions must resolve the repo root independently. |
 
 ---
@@ -178,11 +178,12 @@ source = "github.com/my-org/terraform-modules//eks/cluster"
 source = "git::https://github.com/my-org/infra-modules.git//vpc"
 ```
 
-### Auth fallback chain
+### Auth
 
-1. `which gh` → `gh auth status` succeeds → `export GITHUB_PAT=$(gh auth token)` — zero friction
-2. `$GITHUB_PAT` already set → use it
-3. Neither → prompt: `Run 'gh auth login' or set GITHUB_PAT env var, then re-run`
+1. `GITHUB_PAT` set in the user's shell (a token with read access to the module repositories) → the script passes it inline to Terraform and Checkov
+2. Not set → stop with: `Private GitHub modules detected. Export GITHUB_PAT ... and re-run`
+
+The skill and the script never derive a token from the gh CLI or anywhere else on the machine.
 
 ### Other private sources
 
