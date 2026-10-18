@@ -193,9 +193,11 @@
         "protected-paths"
       ],
       "source": {
-        "source": "url",
+        "source": "git-subdir",
         "url": "https://github.com/nitinjain999/platform-skills.git",
-        "sha": "108182202966db86b282c9ed10a9005a0001bc80"
+        "path": "plugins/platform-skills",
+        "ref": "main",
+        "sha": "125cb09e7c717fdc56dfceacd456583dc9903689"
       },
       "homepage": "https://github.com/nitinjain999/platform-skills"
     },
@@ -213,7 +215,7 @@
         "url": "https://github.com/nitinjain999/platform-skills.git",
         "path": "plugins/platform-guardrails",
         "ref": "main",
-        "sha": "108182202966db86b282c9ed10a9005a0001bc80"
+        "sha": "125cb09e7c717fdc56dfceacd456583dc9903689"
       },
       "homepage": "https://github.com/nitinjain999/platform-skills"
     }
