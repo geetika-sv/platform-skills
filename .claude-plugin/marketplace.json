@@ -197,7 +197,7 @@
         "url": "https://github.com/nitinjain999/platform-skills.git",
         "path": "plugins/platform-skills",
         "ref": "main",
-        "sha": "125cb09e7c717fdc56dfceacd456583dc9903689"
+        "sha": "e5e1c3241d9c60beca40b5c2500c2106ac6b3c6f"
       },
       "homepage": "https://github.com/nitinjain999/platform-skills"
     },
@@ -215,7 +215,7 @@
         "url": "https://github.com/nitinjain999/platform-skills.git",
         "path": "plugins/platform-guardrails",
         "ref": "main",
-        "sha": "125cb09e7c717fdc56dfceacd456583dc9903689"
+        "sha": "e5e1c3241d9c60beca40b5c2500c2106ac6b3c6f"
       },
       "homepage": "https://github.com/nitinjain999/platform-skills"
     }
