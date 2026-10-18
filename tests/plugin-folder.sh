@@ -11,7 +11,10 @@
 #      GIF, WebP and font files
 #   3. nothing that stops validation: no symlinks, no OS metadata files, no name
 #      with a colon, a trailing dot or space, or a Windows device name, and no two
-#      names that differ only by case
+#      names that differ only by case; and no file that .gitignore keeps out of a
+#      commit (`secrets/` dropped skills/secrets/ that way: the folder passed
+#      here on disk and failed in CI's clone). Checked when the folder is in
+#      this repository, so not for a --dir copy elsewhere
 #   4. a README.md of at least 40 words outside code blocks, a LICENSE, and no
 #      CLAUDE.md (the directory warns that a plugin's CLAUDE.md is never loaded)
 #   5. every $CLAUDE_PLUGIN_ROOT/<path> a shipped file runs exists in the folder:
@@ -94,6 +97,17 @@ bad_names="$(printf '%s\n' "$files" | tr '/' '\n' | sort -u \
 case_clash="$(printf '%s\n' "$files" | tr '[:upper:]' '[:lower:]' | sort | uniq -d)"
 [ -z "$case_clash" ] || fail "paths that differ only by case: $case_clash"
 [ -n "$links$junk$bad_names$case_clash" ] || echo "✅ no symlinks, OS metadata files or unportable names"
+
+case "$DIR/" in
+  "$ROOT"/*)
+    ignored="$(git ls-files --others --ignored --exclude-standard -- "$DIR")"
+    if [ -z "$ignored" ]; then
+      echo "✅ .gitignore keeps no file of the folder out of a commit"
+    else
+      fail "files .gitignore keeps out of a commit, so a clone lacks them; re-include them in .gitignore: $ignored"
+    fi
+    ;;
+esac
 
 # 4. listing files
 if [ -f "$DIR/README.md" ]; then
