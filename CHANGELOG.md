@@ -5,7 +5,9 @@ All notable changes to Platform Skills will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.45.1] - 2026-10-18
+
+Moves the plugin directory listing to a plugin-only folder, `plugins/platform-skills/`, small enough for the directory to inspect every file, and fixes the Renovate GitHub Actions group.
 
 ### Added
 
@@ -30,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Two links in `examples/agent-self-improve/HOW_IT_WORKS.md` left the plugin folder.** They pointed at the repository's root guides with `../../`, and now use their GitHub URLs.
 - **Renovate's GitHub Actions group failed with "Error updating branch: update failure".** The group rule sets `pinDigests: true` for everything the github-actions manager extracts, including tool versions passed as action inputs (depType `uses-with`). #219 brought `cosign-release: v3.1.3` in `examples/kubescape/workflows/kubescape.yml` into scope, and Renovate tried to pin it to a commit digest. A `with:` value has nowhere to put a digest, so the update could not be written ("Digest is not updated" in the job log). That failed the whole group branch, along with every real update in it. `uses-with` dependencies now have `pinDigests: false`; their version updates still apply.
 - **The placeholder Copilot setup-steps template is no longer scanned.** Every `uses:` ref in `assets/copilot-setup-steps.template.yml` is a placeholder that `setup-agents` fills in, so Renovate has nothing to update there. The template is out of the github-actions patterns, and `assets/*.template.*` is listed in `ignorePaths` (#236).
+
+### Changed
+
+- Dependency updates. All of them are in examples only, and no skill behaviour changes:
+  - The example workflows' GitHub Actions: anchore/sbom-action v0.24.3, aquasecurity/trivy-action v0.36.0, aws-actions/configure-aws-credentials v6.3.0, bridgecrewio/checkov-action v12.3134.0, docker/build-push-action v7.4.0, docker/login-action v4.6.0, docker/metadata-action v6.2.0, docker/setup-buildx-action v4.4.1, fluxcd/flux2/action v2.9.6, github/codeql-action v4.39.0, hashicorp/setup-terraform v4.0.1, sigstore/cosign-installer v4.1.2, terraform-linters/setup-tflint v6.3.2 and the slsa-github-generator container workflow v2.1.0 (#238)
+  - Node.js 24 in the fixed supply-chain demo workflow (was 18) (#239)
 
 ## [1.45.0] - 2026-10-18
 
