@@ -123,19 +123,16 @@ if grep -r 'hashicorp/google' "$ROOT" --include="*.tf" -l &>/dev/null; then
   gcloud auth application-default print-access-token &>/dev/null || { echo "ERROR: GCP credentials not configured. Run: gcloud auth application-default login" >&2; exit 1; }
 fi
 
-# --- GitHub module auth via gh CLI ---
-# Token is scoped to the terraform/checkov invocations only — never printed or exported
-# to the broader shell session. Storing in a variable that is passed inline keeps it
-# out of 'ps aux' output and avoids leaking it via shell history or sub-processes.
+# --- GitHub module auth ---
+# The script never derives a token. Private GitHub modules need GITHUB_PAT set in the
+# user's own shell; it is passed inline to the terraform/checkov invocations only —
+# never printed or exported to the broader shell session.
 _GITHUB_PAT_VALUE=""
 if grep -rE 'source[[:space:]]*=[[:space:]]*"(github\.com/|git::https://github\.com/)' "$ROOT" --include="*.tf" -l &>/dev/null; then
-  if command -v gh &>/dev/null && gh auth status &>/dev/null 2>&1; then
-    _GITHUB_PAT_VALUE=$(gh auth token)
-    echo "INFO: GitHub PAT obtained from gh CLI for private module resolution"
-  elif [ -n "${GITHUB_PAT:-}" ]; then
+  if [ -n "${GITHUB_PAT:-}" ]; then
     _GITHUB_PAT_VALUE="${GITHUB_PAT}"
   else
-    echo "ERROR: Private GitHub modules detected but no auth found. Run: gh auth login" >&2
+    echo "ERROR: Private GitHub modules detected. Export GITHUB_PAT (a token with read access to the module repositories) in your shell, then re-run." >&2
     exit 1
   fi
 fi

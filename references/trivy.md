@@ -138,8 +138,9 @@ jobs:
 
 ```bash
 # GHCR
+# Set in your own shell before starting Claude Code; the skill never reads or creates them
 export TRIVY_USERNAME=<github-user>
-export TRIVY_PASSWORD=$(gh auth token)
+export TRIVY_PASSWORD=<token with read:packages>
 
 # ECR (uses ambient IRSA / instance profile — no creds needed in CI with IRSA)
 # Or explicit:
@@ -197,7 +198,8 @@ trivy repo \
 ### Private repo auth
 
 ```bash
-export TRIVY_GITHUB_TOKEN=$(gh auth token)
+# Trivy reads GITHUB_TOKEN (GITLAB_TOKEN for GitLab) from the environment. Set it in your own
+# shell first; the skill never reads or creates it.
 trivy repo https://github.com/org/private-repo
 ```
 
@@ -485,7 +487,7 @@ exit-code: 1
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `FATAL image pull failed` | Registry auth missing | Set `TRIVY_USERNAME` / `TRIVY_PASSWORD` or `TRIVY_GITHUB_TOKEN` |
+| `FATAL image pull failed` | Registry auth missing | Set `TRIVY_USERNAME` / `TRIVY_PASSWORD` in your shell, or run `trivy registry login` |
 | `FATAL failed to analyze` | Corrupted layer cache | `trivy image --clear-cache` then re-run |
 | `database download failed` | Network / proxy blocks `ghcr.io` | Set `TRIVY_DB_REPOSITORY` to a mirror, or use `--offline-scan` with pre-downloaded DB |
 | Scan very slow on large images | Full image pull | Use `--skip-dirs` to exclude known-clean paths, or scope with `--image-config-scanners` |

@@ -239,7 +239,7 @@ Use `https://api.githubcopilot.com/mcp/` for the GitHub MCP server in VS Code. T
 
 ### Claude Code (`.claude/settings.json`)
 
-Claude Code has no Copilot OAuth session, so `api.githubcopilot.com/mcp/` does not work here. Use `gh auth token` piped into the env var — avoids a stored PAT:
+Claude Code has no Copilot OAuth session, so `api.githubcopilot.com/mcp/` does not work here. Reference a token from the environment instead of storing one:
 
 ```json
 {
@@ -253,4 +253,4 @@ Claude Code has no Copilot OAuth session, so `api.githubcopilot.com/mcp/` does n
 }
 ```
 
-`${GITHUB_TOKEN}` resolves from the shell environment. Populate it with `export GITHUB_TOKEN=$(gh auth token)` in the developer's shell profile — no long-lived secret required.
+`${GITHUB_TOKEN}` resolves from the shell environment. The developer exports a short-lived token in their own shell profile; setup-agents never reads, writes or creates it, and no secret lands in `settings.json`.

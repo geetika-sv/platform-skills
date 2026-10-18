@@ -185,7 +185,7 @@ AWS resource creation failing:
 
 ## `/platform-skills:checkov`
 
-**What it does:** Bootstraps Checkov on the developer's laptop (Homebrew/pip/venv), then runs static or plan-level Terraform security scanning for AWS, Azure, GCP, and EKS. Detects cloud provider from `required_providers`, resolves private GitHub modules via `gh auth token`, generates `.pre-commit-config.yaml` entries if pre-commit is installed, supports multi-format output (cli/json/sarif/junitxml), creates `.checkov.baseline` for brownfield repos, and offers AI-generated fix suggestions or auto-apply patches.
+**What it does:** Bootstraps Checkov on the developer's laptop (Homebrew/pip/venv), then runs static or plan-level Terraform security scanning for AWS, Azure, GCP, and EKS. Detects cloud provider from `required_providers`, resolves private GitHub modules with a `GITHUB_PAT` you export (never derived by the skill), generates `.pre-commit-config.yaml` entries if pre-commit is installed, supports multi-format output (cli/json/sarif/junitxml), creates `.checkov.baseline` for brownfield repos, and offers AI-generated fix suggestions or auto-apply patches.
 
 ```
 /platform-skills:checkov

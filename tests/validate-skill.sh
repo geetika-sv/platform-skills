@@ -103,6 +103,21 @@ else
 fi
 
 echo ""
+echo "=== Shipped content never derives a credential ==="
+
+# The plugin directory holds a plugin that reads credentials from the user's
+# machine. Skills, references and examples must leave tokens to the user's own
+# environment (tools read GH_TOKEN, GITHUB_TOKEN, GITHUB_PAT, ...), never derive
+# them with $(gh auth token).
+DERIVED="$(git grep -nE '[$][(]gh auth token[)]' -- skills references examples 2>/dev/null || true)"
+if [ -z "$DERIVED" ]; then
+  pass "no \$(gh auth token) in skills, references or examples"
+else
+  fail "credential derived from the machine — let the tool read a user-set env var instead:"
+  printf '%s\n' "$DERIVED" | sed 's/^/    /'
+fi
+
+echo ""
 echo "=== Reference files ==="
 
 REQUIRED_REFERENCES=(
