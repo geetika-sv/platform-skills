@@ -5,6 +5,16 @@ All notable changes to Platform Skills will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **The marketplace installs `platform-skills` from `plugins/platform-skills`.** Since #242, the entry is a `git-subdir` source pinned to the 1.45.1 content commit, not the whole repository. Installs get the same 410 files the plugin directory reviews, and no repository-root `CLAUDE.md`. The pin PR could not carry this note: `release.yml` rejects a tag if anything but `marketplace.json` differs from the pin.
+
+### Fixed
+
+- **The composite-actions "safe" injection example sent a token in a URL.** In `skills/composite-actions`, the ✅ example passed `inputs.token` through `env:` correctly, then sent it as `?token=` in a query string, where server and proxy logs keep it. The directory scan also flagged it as reading a credential and sending it to `example.com`. The example now deploys a Helm chart into `inputs.namespace`, a non-secret input. Both steps gained the `shell: bash` that composite-action `run:` steps require. A line after the example says to pass a secret the same way and send it in a request header.
+
 ## [1.45.1] - 2026-10-18
 
 Moves the plugin directory listing to a plugin-only folder, `plugins/platform-skills/`, small enough for the directory to inspect every file, and fixes the Renovate GitHub Actions group.
