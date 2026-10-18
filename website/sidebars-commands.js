@@ -119,6 +119,8 @@ const sidebars = {
         { type: 'doc', id: 'triage' },
         { type: 'doc', id: 'self-improve' },
         { type: 'doc', id: 'finops' },
+        { type: 'doc', id: 'kubescape' },
+        { type: 'doc', id: 'kubescape-operator' },
       ],
     },
     {

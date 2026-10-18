@@ -5,6 +5,67 @@ All notable changes to Platform Skills will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Renovate missed pins outside its default file patterns.**
+  - **Examples were not scanned.** The example workflows outside `.github/workflows` (14 of them, plus the Copilot setup-steps template) were never scanned, and some had already drifted (`flux-sync.yml` still pinned checkout v6.0.2). Flux `HelmRelease`, `OCIRepository` and `GitRepository` versions were not scanned either, because the flux manager defaults to `gotk-components.yaml` only. The same went for the two example manifests that use real public images, since the kubernetes manager matches nothing by default. `renovate.json` now adds patterns for each of these.
+  - **Tool versions in env blocks and download URLs were invisible to Renovate.** `ZIZMOR_VERSION` stayed at 1.29.0 while 1.31.1 shipped, under a comment that said "Renovate keeps it current". These pins now carry a `# renovate: datasource=... depName=...` annotation, which a new custom regex manager reads. When a `*_SHA256` line follows the version, Renovate updates the checksum with it through `github-release-attachments`.
+  - **Two kubeconform installs were unverified.** `validate.yml` downloaded kubeconform v0.6.4 with no checksum, next to a checksum-verified v0.8.0, and so did `examples/github-actions/flux-sync.yml`. Both now use the pinned, verified v0.8.0.
+  - **The gate's actionlint download hard-coded its version.** In `renovate-gate.md`, actionlint now builds its URL from an annotated version variable (lock recompiled with gh aw v0.86.2). A new package rule adds a note to any Renovate PR that touches a gh-aw source, because the lock file needs a recompile before merge.
+- **Duplicate Terraform PRs.** `terraform_version` was extracted twice, as `terraform` by the github-actions manager and as `hashicorp/terraform` by the custom manager, so one version line could get two PRs. The github-actions copy is disabled. The custom manager now also reads gh-aw `.md` sources, where the Renovate Gate pins Terraform 1.15.8.
+- **Fixtures that are outdated or broken on purpose are now ignored.** These are the eval evidence, the pr-review and triage scenarios, and the demo `bad.*` files. The two custom managers that matched nothing (the "Flux CLI (…)" and "Kubernetes cluster (…)" doc regexes) are removed.
+- **New gate: `tests/renovate-coverage.sh`.** `tests/handbook-consistency.sh` now runs it. It fails on an unannotated `*_VERSION:` pin, an annotation with no value below it, or a download URL that hard-codes a release version. It also fails on an empty scan.
+
+## [1.44.1] - 2026-10-17
+
+Fixes two problems in how `platform-guardrails` ships, the plugin that runs hooks in every session.
+
+### Fixed
+
+- **`platform-guardrails` was not pinned.** Its marketplace entry was `git-subdir` with `ref: main` and no `sha`, so new installs got whatever `main` held, with no tag and no release gate between a merge and code that runs on every session, tool call and compaction. Because the entry also sets a `version`, existing installs never refreshed, so two installs of "1.44.0" could run different hooks. The entry now carries `sha` (`git-subdir` accepts `url`, `path`, `ref` and `sha`), pointing at the content 1.44.0 shipped; the next pin PR moves both entries together.
+- **The release gate checked only `plugins[0]`.** The `source.sha` check in `release.yml` is now `tests/marketplace-pins.sh --release <tag>`, which checks every plugin entry for reachability and for content between the pin and the tag, and fails closed on a missing or malformed `sha` instead of skipping it. `tests/handbook-consistency.sh` runs its structure check on every PR, and `tests/guardrails-plugin.sh` proves it rejects a branch-only source, a relative path, a short and an uppercase sha.
+- **Self-improve hooks could run twice without warning.** With the hooks wired by hand in `settings.json` *and* `platform-guardrails` enabled, every event fired twice: two banners, every tool failure captured twice, every session counted twice. The self-improve skill warned about this only inside its own setup flow. The plugin's `SessionStart` now names any user or project settings file that still wires `self-improve-hook`. Only the plugin's copy can see both wirings, so the check runs only when the script is launched from `CLAUDE_PLUGIN_ROOT`; three new bash cases cover user and project files, a trailing slash on the plugin root, a hand-wired run, and another plugin's root.
+
+### Also in this release
+
+- React 19.3.1 for the docs site (#215) and a repository code-review skill for Copilot (#173), both merged after the 1.44.0 pin.
+
+## [1.44.0] - 2026-10-17
+
+Adds Kubescape (CNCF) as two skills, bringing the plugin to 51 commands: `/platform-skills:kubescape` for posture checks with the CLI and a PR gate, and `/platform-skills:kubescape-operator` for continuous security inside the cluster. Every command was run against Kubescape CLI v4.0.16 and the operator was installed through Flux on Kubernetes 1.36; four places where the official docs and the shipped code disagree are documented, and the examples are built around the code.
+
+### Added
+
+- **`/platform-skills:kubescape`**, **`references/kubescape.md`** and **`examples/kubescape/`**: framework choice (NSA, MITRE, CIS for EKS/AKS/GKE/vanilla picked from the node `providerID`, SOC2), measured gate exit codes (a scan without a gate always exits 0), a PR gate that fails only on new findings (`--baseline` against the base branch scanned from a `git worktree`, because the baseline compares by repository identity), exceptions, controls configuration, `kubescape fix` with what it cannot fix, the CEL `ValidatingAdmissionPolicy` library bound by control ID and promoted Warn → Deny, and one-off image scans. Interactive three-layer wizard with silent detection and a result card. The example workflow installs the CLI with `cosign verify-blob` instead of `kubescape/github-action`, whose latest release bundles CLI v3.0.21; runs on every pull request so it can be a required check; turns off inline `kubescape.io/skip-controls` annotations; builds Helm chart dependencies and fails on errors; and fails on `disable` exceptions that are expired or undated, and on any `actions` other than exactly `["disable"]` or `["alertOnly"]` (Kubescape suppresses unless an exception is explicitly `alertOnly`, so a mixed, empty, missing or unknown action list suppresses too).
+- **`/platform-skills:kubescape-operator`**, **`references/kubescape-operator.md`** and **`examples/kubescape-operator/`**: kernel and overlap preflight (Falco, Trivy Operator, Kyverno, Prometheus Operator), a capability matrix with four install profiles, chart 1.40.4 via Flux with every capability set explicitly, the mutating ones (`remediation`, `autoUpgrading`) off and cluster-wide Secret reads off, an opt-in two-step rollout (binding first, then a `postRenderers` patch) that narrows a noisy namespace (`ci-runners`) to signature rules without a coverage gap, relevancy-ranked vulnerabilities, runtime detection against learned container profiles, generated NetworkPolicies turned into reviewed Git changes, `SecurityException` with `expiresAt`, and a `PrometheusRule` checked with `promtool test rules`. Interactive wizard and a status card.
+- **`kubescape-validate.sh`** and **`kubescape-operator-validate.sh`**, registered in `tests/validate-skill.sh`: offline checks, plus the real gate behaviour when `kubescape` is on PATH and a chart render when `helm` is.
+- **`plugin-evals/kubescape-trigger`**: a CIS-on-EKS plus PR-gate request must load `kubescape`, not `kubescape-operator`, `trivy` or `kyverno`.
+
+### Changed
+
+- **Wired into existing skills.** `preflight` runs `kubescape scan` on manifests and charts when the CLI is installed and folds failed controls into its findings; `helmchart security` scans the rendered chart first; `compliance` maps Kubescape's SOC2 framework controls to criteria and adds a dated report to evidence collection; `pr-review` reports new failed controls with `--baseline` under CC6.8; `kubernetes`, `trivy`, `runtime-security`, `kyverno`, `supply-chain`, `github-actions` and `observability` route the overlapping questions.
+
+### Fixed
+
+- `tests/validate-skill.sh` no longer aborts silently when an example directory is missing (`find` under `pipefail`); it reports the missing domain as a failure.
+- `tests/validate-ci.sh`'s PyYAML fallback (used when `yamllint` is not installed) parsed with `yaml.safe_load`, which rejects multi-document files, so 25 valid manifests failed on every machine without yamllint; it now uses `yaml.safe_load_all`.
+- **Renovate Gate no longer fails on every Renovate PR.** Its approve-and-merge path could never succeed: `GITHUB_TOKEN` cannot approve a pull request (422, a platform rule, not a missing permission), and `main` requires an approving review, so `safe_outputs` went red each time (#158, #201, #203, #210). The gate now posts its verdict as a `COMMENT` review (`Renovate Gate: safe to merge (squash).` plus the matched category, green CI and a clean release-notes summary) and a maintainer approves and merges. `APPROVE` and `merge-pull-request` are removed from its safe outputs.
+
+### Notes
+
+- **Chart 1.40.4 bundles scanner v4.0.13, whose `all` framework scans fail** with `framework 'C-0042' not found` against the current controls (fixed in v4.0.14, kubescape#3768). Every scheduled and operator-triggered scan uses `all`, so the example overrides `kubescape.image.tag: v4.0.16`.
+- **`alertOnly` exceptions do not suppress.** The control stays failed and still fails every gate; `"actions": ["disable"]` suppresses. The docs list `alertOnly` as the only action.
+- **`applicationprofiles` and `networkneighborhoods` are gone** (deleted by storage v0.0.331); runtime profiles are `containerprofiles`, and `kubescape.io/status: ready` means still learning.
+- **Inline exceptions are on by default for local files.** A `kubescape.io/skip-controls` annotation suppresses a finding without a reason or review (measured: `privileged: true` plus `skip-controls: C-0057` passed the gate). CI passes `--honor-inline-exceptions=false`.
+- **Helm dependencies are fetched, and failures only warn.** v4.0.16 runs Helm's dependency build itself and scans without the subcharts if it fails; the workflow builds them first and fails on errors.
+- **The exporter's gauges always exist.** prometheus-exporter v0.2.23 registers them at start-up, so `absent()` only detects a missing exporter; failing scans show only in the scanner's logs.
+- **Bindings cannot reach excluded namespaces.** node-agent never traces pods in `excludeNamespaces`.
+- **The chart reads every Secret by default.** Chart 1.40.4 defaults `global.enableClusterWideSecretAccess: true`, giving the scanner and operator ClusterRoles `get/list/watch` on Secrets cluster-wide; the example sets it to `false` (verified live: results unchanged, Secret reads confined to `kubescape`).
+- **`providerID` names the cloud, not the distribution.** A self-managed cluster on EC2 reports `aws://`; the benchmark is picked from the API server `gitVersion` (`-eks-`, `-gke.`) and the AKS node label instead.
+- **node-agent needs `CONFIG_FANOTIFY_ACCESS_PERMISSIONS`.** Docker Desktop's kernel (7.0.14-linuxkit) lacks it, so node-agent crash-loops there and Flux's install remediation uninstalls the whole release; the operator reference starts with a kernel preflight and a no-node-agent profile.
+
 ## [1.43.0] - 2026-10-11
 
 Replaces the retired ingress-nginx controller as the handbook's reference ingress and adds `/platform-skills:gateway-api` to migrate existing clusters. Also adds four domain skills (`cluster-upgrade`, `progressive-delivery`, `backup-dr`, `finops`), plugin settings (`userConfig`), a second plugin that ships the hooks, and behavioural evals (49 commands total). ingress-nginx best-effort maintenance ended in March 2026: no releases, bug fixes or security fixes since. Existing installs keep running, which is exactly why the handbook should stop recommending it.

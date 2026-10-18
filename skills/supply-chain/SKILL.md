@@ -160,6 +160,8 @@ Reference: `references/supply-chain.md` → Trivy vs Grype, Severity gates
 
 Generate a Kyverno `ImageValidatingPolicy` that blocks unsigned or unverified images at admission time.
 
+Finding where unsigned images already run: Kubescape reports them as control C-0237 "Check if signature exists" (`/platform-skills:kubescape-operator`, or `kubescape scan control C-0237` on a cluster). Use that list to size the rollout before switching the policy to `Deny`.
+
 Steps:
 1. Ask: keyless (Sigstore) or key-based signing?
 2. For keyless, generate:

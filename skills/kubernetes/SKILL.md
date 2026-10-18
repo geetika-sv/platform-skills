@@ -171,6 +171,8 @@ kubectl run dns-test --image=busybox --restart=Never --rm -it -n app-team \
 **Handoffs:**
 - Policy enforcement on these namespaces → `/platform-skills:kyverno` or `/platform-skills:opa`
 - Secrets strategy for the namespace → `/platform-skills:secrets`
+- Measure the result against NSA or the provider's CIS benchmark → `/platform-skills:kubescape cluster` (`kubescape scan framework nsa --include-namespaces app-team`)
+- Allow rules for the default-deny policy, drafted from the traffic the workloads actually send → `/platform-skills:kubescape-operator netpol`
 
 ---
 
@@ -392,6 +394,8 @@ For event-driven or custom metric scaling → `/platform-skills:keda`
 | No `readinessProbe` | Pod receives traffic before it is ready; add readiness probe |
 | No `startupProbe` for slow apps | Liveness kills pods during slow start; add startup probe |
 | `default` service account | Creates implicit access to cluster APIs; create a dedicated SA |
+
+Find these gaps across a whole manifest tree or cluster at once: `kubescape scan framework nsa <path>` (or with no path for the current cluster) lists each as a failed control with the affected resources → `/platform-skills:kubescape`.
 
 ---
 

@@ -189,6 +189,7 @@ Every finding below carries a `Confidence` value — exactly one of three:
 |---|---|---|---|
 | Terraform | `terraform` | `terraform fmt -check` and `terraform validate` — only if `.terraform/` is already initialized; never run `init` as a side effect | Yes, if installed and initialized |
 | Kubernetes manifests | `kubectl` | `kubectl apply --dry-run=server -f <file>` if a cluster context is configured, else `kubectl apply --dry-run=client -f <file>` | Yes, if installed |
+| Kubernetes manifests, Helm chart, Kustomize (posture) | `kubescape` | `kubescape scan framework nsa <path> --format json --output /tmp/preflight-kubescape.json` (charts: `helm dependency build` first if dependencies are not vendored). Fold each failed control into the findings as `C-XXXX <name>` with Kubescape's severity and the resource; never pass a gate flag — preflight reports, it does not gate | Yes, if installed |
 | Flux Kustomization/HelmRelease | `flux` | `flux --version` gate only — live reconciliation checks stay `Static review` and belong to `/platform-skills:gitops` | No — version gate only |
 | Terraform (deeper policy) | `checkov` | Not run automatically — stays a Step 7 handoff to `/platform-skills:checkov` | No |
 | Dockerfile / images | `trivy` | Not run automatically — requires a built image, stays a Step 7 handoff to `/platform-skills:trivy` | No |
@@ -199,7 +200,7 @@ Every finding below carries a `Confidence` value — exactly one of three:
 
 If a tool isn't installed, skip execution, label affected findings `Static review`, and note once per file type: `<tool> not found — findings for this file are Static review only`.
 
-**Hard rule:** never claim `terraform`, `kubectl`, `helm`, `checkov`, `trivy`, `actionlint`, `zizmor`, `kingfisher`, or `shellcheck` was run unless it was actually executed in this session and its output was inspected. If a tool isn't installed or a check requires access the model doesn't have, say so and mark the finding `Static review` or `Not verified` — never `Tool verified`.
+**Hard rule:** never claim `terraform`, `kubectl`, `helm`, `kubescape`, `checkov`, `trivy`, `actionlint`, `zizmor`, `kingfisher`, or `shellcheck` was run unless it was actually executed in this session and its output was inspected. If a tool isn't installed or a check requires access the model doesn't have, say so and mark the finding `Static review` or `Not verified` — never `Tool verified`.
 
 ---
 
@@ -410,6 +411,8 @@ If a tool isn't installed, skip execution, label affected findings `Static revie
 | Terraform IaC security scan | `/platform-skills:checkov` |
 | Helm chart scaffold or upgrade diff | `/platform-skills:helmchart` |
 | Container image CVE scan | `/platform-skills:trivy` |
+| Kubernetes posture against NSA/MITRE/CIS/SOC2, or a PR gate on new findings | `/platform-skills:kubescape` |
+| Continuous in-cluster posture, runtime alerts, NetworkPolicies from traffic | `/platform-skills:kubescape-operator` |
 | GitHub Actions workflow security audit, `zizmor.yml` policy, or CI gate | `/platform-skills:zizmor` |
 | Leaked secret: live validation, blast radius, or revocation | `/platform-skills:kingfisher` |
 | Flux reconciliation issue | `/platform-skills:gitops` |

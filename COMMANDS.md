@@ -50,6 +50,8 @@ Commands work in any conversation — type the slash command or describe your pr
 | [/platform-skills:progressive-delivery](#platform-skillsprogressive-delivery) | Flagger canaries on Gateway API with metric-gated promotion and automatic rollback |
 | [/platform-skills:backup-dr](#platform-skillsbackup-dr) | Velero backups, timed restore drills, namespace restore, DR to another cluster |
 | [/platform-skills:finops](#platform-skillsfinops) | Infracost PR cost diff, OpenCost allocation, four-layer cost-tag enforcement |
+| [/platform-skills:kubescape](#platform-skillskubescape) | NSA/MITRE/CIS/SOC2 posture for manifests, charts and clusters; PR gate on new findings; exceptions; fix; CEL admission library |
+| [/platform-skills:kubescape-operator](#platform-skillskubescape-operator) | Kubescape operator: continuous posture, relevancy-ranked CVEs, runtime detection, NetworkPolicies from traffic |
 | [/platform-skills:self-improve](#platform-skillsself-improve) | Bootstrap, log, review, or promote agent self-improvement entries |
 | [/platform-skills:chaos](#platform-skillschaos) | Install Litmus Chaos or Chaos Mesh, generate fault experiments, schedule chaos, run GameDay, debug, report |
 | [/platform-skills:dora](#platform-skillsdora) | Instrument DORA metrics, generate Grafana dashboards, benchmark against performance bands, debug metric gaps |
@@ -2328,6 +2330,82 @@ Reference: `skills/backup-dr/SKILL.md`, `references/backup-dr.md`, and `examples
 ```
 
 Reference: `skills/finops/SKILL.md`, `references/finops.md`, and `examples/finops/README.md`
+
+---
+
+## `/platform-skills:kubescape`
+
+**What it does:** Measures Kubernetes manifests, Helm charts, Kustomize overlays and live clusters against NSA-CISA, MITRE ATT&CK, CIS (EKS, AKS, GKE, vanilla) and SOC2 with the Kubescape CLI, and explains the result as a short card: score, the five findings to fix first, and one next step. It adds a GitHub Actions gate that fails a pull request only on findings it introduces (`--baseline` against the base branch), installs the CLI with a verified signature instead of the stale `kubescape/github-action`, writes exceptions with the action that actually suppresses (`disable`, not `alertOnly`) and a review date, previews `kubescape fix` and lists what it cannot fix, and rolls out Kubescape's CEL admission policies from Warn to Deny. Runs an interactive wizard when called without arguments.
+
+**Modes**
+
+| Mode | What it does |
+|---|---|
+| `scan` | Score a path, chart, overlay or git URL against a framework |
+| `cluster` | Score the current cluster (or several kube contexts) and say what a CLI-only scan cannot see |
+| `ci` | PR gate on new findings, signature-verified CLI, SARIF and job summary |
+| `exceptions` | An exception that suppresses, with a reason and an `until-` date the CI enforces |
+| `fix` | Preview, apply in a clean tree, hand-fix the rest |
+| `vap` | Kubescape's ValidatingAdmissionPolicy library, bound by control ID, Warn → Deny |
+| `image` | One-off image CVE check (CI image gates: `/platform-skills:trivy`) |
+
+**Usage**
+
+```
+/platform-skills:kubescape
+/platform-skills:kubescape scan charts/payments-api
+/platform-skills:kubescape cluster cis-eks-t1.8.0
+/platform-skills:kubescape ci
+/platform-skills:kubescape exceptions C-0030 payments/payments-api
+/platform-skills:kubescape fix k8s/
+/platform-skills:kubescape vap C-0057 payments
+```
+
+**Example prompts**
+
+```
+/platform-skills:kubescape how does our EKS cluster measure against the CIS benchmark?
+/platform-skills:kubescape fail PRs that add high-severity Kubernetes misconfigurations, but not for problems that are already there
+```
+
+Reference: `skills/kubescape/SKILL.md`, `references/kubescape.md`, and `examples/kubescape/README.md`
+
+---
+
+## `/platform-skills:kubescape-operator`
+
+**What it does:** Runs Kubescape inside the cluster. It checks the nodes' kernel and looks for Falco, Trivy Operator, Kyverno and the Prometheus Operator before asking anything, recommends one of four install profiles, and writes the Flux (or Argo CD) manifests with every capability set explicitly, the chart pinned, and the scanner image overridden (the bundled v4.0.13 scanner produces no results). It then reads posture and vulnerability results (ranked by whether the vulnerable package loads), enables runtime detection with a stated learning period, turns generated NetworkPolicies into reviewed Git changes, writes `SecurityException`s with an expiry, sets up metrics and alerts, and debugs node-agent and scan failures. Ends every mode with a status card.
+
+**Modes**
+
+| Mode | What it does |
+|---|---|
+| `install` | Preflight, profile, manifests, verification, upgrade and rollback |
+| `vulns` | CVEs ranked by relevancy, on-demand scans, private registries |
+| `runtime` | Detection, learning progress, rule bindings, alert routing, a test alert |
+| `netpol` | Generated policy → reviewed NetworkPolicy in Git |
+| `exceptions` | `SecurityException` / `ClusterSecurityException` with reason, author, expiry |
+| `metrics` | Exporter, ServiceMonitor, alert rules |
+| `debug` | node-agent crash loops, empty results, uninstalled releases, storage, profiles |
+
+**Usage**
+
+```
+/platform-skills:kubescape-operator
+/platform-skills:kubescape-operator install
+/platform-skills:kubescape-operator vulns payments
+/platform-skills:kubescape-operator netpol payments
+/platform-skills:kubescape-operator debug
+```
+
+**Example prompts**
+
+```
+/platform-skills:kubescape-operator install Kubescape on our EKS clusters with Flux; we already run Falco
+/platform-skills:kubescape-operator node-agent is in CrashLoopBackOff with "no container runtime can be monitored with fanotify"
+```
+
+Reference: `skills/kubescape-operator/SKILL.md`, `references/kubescape-operator.md`, and `examples/kubescape-operator/README.md`
 
 ---
 

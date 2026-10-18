@@ -22,6 +22,8 @@ Read `references/trivy.md` before responding. It contains all mode logic, bootst
 | "Are there secrets in this repo?" (fast, offline pattern match) | **this command** |
 | "Is that secret still live? What can it reach? Revoke it." | `/platform-skills:kingfisher` |
 | "What CVEs are running in my cluster?" | **this command** (`k8s` / Operator) |
+| "Which of those CVEs are in packages that actually load?" (cluster runs Kubescape) | `/platform-skills:kubescape-operator vulns` — run one CVE operator per cluster, not both |
+| "Does this manifest / cluster meet NSA, MITRE, CIS or SOC2?" | `/platform-skills:kubescape` |
 
 ---
 

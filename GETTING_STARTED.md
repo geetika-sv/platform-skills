@@ -145,7 +145,7 @@ My Flux Kustomization `apps` is stuck in NotReady with: "context deadline exceed
 - It cannot see your cluster or cloud account — paste the relevant output
 - It works best on one concrete problem at a time, not "review everything"
 
-### All 49 command workflows
+### All 51 command workflows
 
 See [COMMANDS.md](COMMANDS.md) for every command with modes and example prompts:
 
@@ -184,6 +184,8 @@ See [COMMANDS.md](COMMANDS.md) for every command with modes and example prompts:
 | `progressive-delivery` | Use `/platform-skills:progressive-delivery` to add Flagger canaries with metric-gated promotion, or debug a canary that will not promote |
 | `backup-dr` | Use `/platform-skills:backup-dr` to install Velero, design schedules, run a timed restore drill, or restore a namespace |
 | `finops` | Use `/platform-skills:finops` to estimate a Terraform PR's cost, allocate in-cluster cost, or enforce cost-allocation tags |
+| `kubescape` | Use `/platform-skills:kubescape` to score manifests, charts or a cluster against NSA, MITRE, CIS or SOC2, and gate PRs on new findings |
+| `kubescape-operator` | Use `/platform-skills:kubescape-operator` to run Kubescape in the cluster: relevancy-ranked CVEs, runtime alerts, NetworkPolicies from traffic |
 | `self-improve` | Bootstrap `.learnings/` workspace, log errors and learnings, resume after interruption, promote to project memory |
 | `supply-chain` | Sign images, generate SBOMs, run CVE gates, enforce image signatures, generate SLSA provenance |
 | `runtime-security` | Deploy Falco with eBPF, write custom rules, route alerts, debug rule firing, bridge to Kyverno |

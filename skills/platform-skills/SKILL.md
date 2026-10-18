@@ -1,6 +1,6 @@
 ---
 name: platform-skills
-description: "Use when troubleshooting, implementing, reviewing, or auditing platform infrastructure as a system — where Kubernetes, GitOps, CI/CD, and security concerns intersect. Provides structured diagnosis with blast radius, validation steps, and rollback plan for: Kubernetes, Flux CD, Argo CD, Terraform, GitHub Actions (composite actions, OIDC, SHA pinning), AWS, Azure, GKE, Linkerd, KEDA, Karpenter, supply chain security (Cosign, SBOM, SLSA), Falco, Chaos Engineering, DORA metrics, Datadog/Dynatrace/LLM observability, SOC 2, and PR review."
+description: "Use when troubleshooting, implementing, reviewing, or auditing platform infrastructure as a system — where Kubernetes, GitOps, CI/CD, and security concerns intersect. Provides structured diagnosis with blast radius, validation steps, and rollback plan for: Kubernetes, Flux CD, Argo CD, Terraform, GitHub Actions (composite actions, OIDC, SHA pinning), AWS, Azure, GKE, Linkerd, KEDA, Karpenter, supply chain security (Cosign, SBOM, SLSA), Kubernetes posture with Kubescape (NSA, MITRE, CIS, SOC2, PR gates, operator runtime detection), Falco, Chaos Engineering, DORA metrics, Datadog/Dynatrace/LLM observability, SOC 2, and PR review."
 ---
 
 # Platform Skills
@@ -54,6 +54,8 @@ A value that is empty, or still reads as an unsubstituted placeholder, is not co
 | `Progressive Delivery` | Flagger canaries on Gateway API (Envoy Gateway, Linkerd), metric-gated promotion, automatic and emergency rollback — `/platform-skills:progressive-delivery` |
 | `Backup / DR` | Velero on EKS with IRSA, schedules and retention, restore drills with measured recovery time, cross-cluster DR — `/platform-skills:backup-dr` |
 | `FinOps` | Infracost PR cost diff, cost-allocation tags enforced in four layers, OpenCost allocation — `/platform-skills:finops` |
+| `Kubescape` | Posture against NSA, MITRE, CIS and SOC2 for manifests, Helm charts and clusters; PR gate on new findings; exceptions that suppress; CEL admission library — `/platform-skills:kubescape` |
+| `Kubescape Operator` | Continuous in-cluster posture, relevancy-ranked CVEs, eBPF runtime detection, NetworkPolicies from observed traffic, SecurityException with expiry — `/platform-skills:kubescape-operator` |
 | `Agent Self-Improvement` | `.learnings/` workspace, LRN/ERR lifecycle, WAL, VFM, ADL |
 | `Supply Chain Security` | Cosign signing, Syft SBOM, Trivy/Grype CVE gates, SLSA Level 2 |
 | `Runtime Security` | Falco eBPF, custom rules, Falcosidekick routing, Kyverno enforcement |
@@ -153,6 +155,8 @@ Load only the files needed for the current request.
 | references/progressive-delivery.md | How a Flagger canary works, traffic providers (Gateway API, Linkerd), metrics, GitOps interplay, rollback, troubleshooting |
 | references/backup-dr.md | What Velero backs up and what it does not, configuration decisions, restore drills, DR to another cluster, rollback |
 | references/finops.md | Tag enforcement in four layers (Terraform, Conftest, AWS Config, Kyverno), Infracost on PRs, OpenCost allocation, rollback |
+| references/kubescape.md | Verified CLI install, frameworks, gate exit codes, baseline PR gate, the two exception actions (disable suppresses, alertOnly does not), fix limits, VAP rollout, troubleshooting |
+| references/kubescape-operator.md | Kernel and overlap preflight, capability matrix and install profiles, scanner image override, vulnerabilities and relevancy, runtime detection, generated NetworkPolicies, SecurityException, metrics, troubleshooting |
 | references/agent-self-improve.md | `.learnings/` workspace, entry metadata, lint and recall, WAL, VFM, ADL, status/migrate |
 | references/supply-chain.md | Cosign, Syft SBOM, Trivy/Grype, SLSA Level 2, ImageValidatingPolicy |
 | references/trivy.md | Trivy bootstrap, image/fs/repo/secrets/sbom/k8s modes, severity gating, Trivy Operator via Flux HelmRelease |
@@ -203,6 +207,8 @@ For explicit, repeatable workflows use these commands:
 - `/platform-skills:progressive-delivery` — install Flagger with signed OCI charts, generate a Canary and MetricTemplates on Gateway API or Linkerd, debug a stuck or rolled-back canary, and roll back a release in an emergency
 - `/platform-skills:backup-dr` — install Velero with IRSA, design schedules and retention, run a timed restore drill into an isolated namespace, restore a deleted namespace, plan DR to another cluster, and debug a failed backup or restore
 - `/platform-skills:finops` — estimate a Terraform PR's monthly cost with Infracost, allocate in-cluster cost by namespace and label with OpenCost, enforce required cost tags in four layers, and audit tag coverage
+- `/platform-skills:kubescape` — score manifests, Helm charts, Kustomize or a live cluster against NSA, MITRE, CIS (EKS, AKS, GKE, vanilla) or SOC2, add a CI gate that fails PRs only on new findings, write exceptions that actually suppress, preview automatic fixes, and enforce controls with Kubescape's CEL admission policy library
+- `/platform-skills:kubescape-operator` — install the Kubescape operator with Flux after a kernel and overlap preflight, rank CVEs by whether they load, alert on runtime behaviour against learned container profiles, turn generated NetworkPolicies into reviewed Git changes, accept risks with expiring SecurityExceptions, export metrics, and debug node-agent and scan failures
 - `/platform-skills:self-improve` — bootstrap global or project-local `.learnings/` workspace (`init global`/`init local`), log/recall/review/promote/revoke learnings and errors with provenance, scope and expiry, status overview, and migrate between scopes
 - `/platform-skills:supply-chain` — sign images, generate and attest SBOMs, run CVE severity gates, enforce image signatures in Kubernetes, and generate SLSA Level 2 provenance
 - `/platform-skills:runtime-security` — deploy Falco with eBPF, write custom rules, route alerts, debug why a rule is not firing, and bridge Falco signals to Kyverno admission enforcement

@@ -56,7 +56,8 @@ else
       if grep -q "YOUR_\|PLACEHOLDER\|<REPLACE" "$f" 2>/dev/null; then
         continue
       fi
-      if python3 -c "import yaml; yaml.safe_load(open('$f'))" >/dev/null 2>&1; then
+      # safe_load_all: manifests often hold several documents separated by ---
+      if python3 -c "import yaml; list(yaml.safe_load_all(open('$f')))" >/dev/null 2>&1; then
         pass "$f parses as valid YAML"
       else
         fail "$f is invalid YAML"

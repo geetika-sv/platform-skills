@@ -24,8 +24,13 @@ What do you need?
   4. debug    — diagnose why a Falco rule is not firing
   5. harden   — map runtime Falco alerts to Kyverno admission policies
 
+  Alerts on behaviour a container never showed while learning (profile-based,
+  no rule writing), or Kubescape already runs → /platform-skills:kubescape-operator runtime
+
 Enter 1–5 or mode name:
 ```
+
+Before `install`, check for another eBPF agent: `kubectl get ds -A | grep -iE 'node-agent|tetragon'`. Kubescape's node-agent with `runtimeDetection` overlaps with Falco on the same nodes; pick one per node pool, or disable Kubescape's `runtimeDetection` and keep its posture and CVE capabilities.
 
 **Q2 — Context** (after mode selected, one at a time):
 - **install**: `Which cloud platform? EKS / GKE / other (specify node OS if known):`
