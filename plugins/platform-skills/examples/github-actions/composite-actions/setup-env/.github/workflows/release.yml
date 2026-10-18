@@ -1,0 +1,70 @@
+name: Release setup-env action
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      # Validate the action.yml before releasing
+      - name: Install actionlint
+        shell: bash
+        run: |
+          curl -sL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash \
+            | bash -s -- latest /usr/local/bin
+
+      - name: Lint action.yml
+        shell: bash
+        run: actionlint action.yml
+
+      # Verify all external uses: are SHA-pinned
+      - name: Check SHA pinning
+        shell: bash
+        run: |
+          UNPINNED=$(grep -n 'uses:' action.yml \
+            | grep -vE '@[0-9a-f]{40}' \
+            | grep -v '\./' || true)
+          if [[ -n "$UNPINNED" ]]; then
+            echo "::error::Unpinned actions found:"
+            echo "$UNPINNED"
+            exit 1
+          fi
+          echo "::notice::All external actions are SHA-pinned"
+
+      # Update the floating major version tag (e.g. v1 → latest v1.x.x)
+      - name: Update floating major version tag
+        shell: bash
+        env:
+          # Never expand github.ref_name straight into the shell — a tag name is
+          # attacker-controllable and ${{ }} is substituted before bash parses it.
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          MAJOR="${REF_NAME%%.*}"
+          git tag -f "$MAJOR"
+          git push origin "$MAJOR" --force
+          echo "::notice::Updated $MAJOR → ${REF_NAME}"
+
+      # Create the GitHub release with auto-generated notes
+      - name: Create GitHub release
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
+        with:
+          script: |
+            const tag = context.ref.replace('refs/tags/', '');
+            const release = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              name: `Release ${tag}`,
+              generate_release_notes: true,
+              draft: false,
+              prerelease: tag.includes('-'),
+            });
+            core.notice(`Release created: ${release.data.html_url}`);
