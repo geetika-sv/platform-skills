@@ -1,5 +1,6 @@
 {
   "name": "platform-skills",
+  "description": "Platform engineering plugins for Claude Code: platform-skills, slash-command workflows for Kubernetes, GitOps, Terraform, CI/CD, cloud, security and observability with blast radius, validation and rollback in every answer; and platform-guardrails, enforcing hooks for session capture and an AI-governance policy gate.",
   "owner": {
     "name": "Nitin Jain",
     "email": "nitin.solna@gmail.com"

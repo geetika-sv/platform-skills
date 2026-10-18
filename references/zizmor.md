@@ -195,17 +195,17 @@ Three modes, and the default is **inferred from the environment** — this is th
 | 2a | ...plus `ZIZMOR_NO_ONLINE_AUDITS` set | Online, fetch only, online audits skipped |
 | 3 | None of the above | Offline |
 
-Make it explicit rather than relying on ambient environment:
+Make the mode explicit when it matters. Neither the skill nor these commands read or create a token: zizmor reads one from the environment variables above, which you set in your own shell.
 
 ```bash
 # Force offline even if a token is present
 zizmor --offline .
 
-# Explicit online — gh CLI token is the recommended local source
-zizmor --gh-token "$(gh auth token)" .
+# Online — with GH_TOKEN, GITHUB_TOKEN or ZIZMOR_GITHUB_TOKEN set in your environment
+zizmor .
 
-# Fetch remote inputs, but run only offline audits
-zizmor --no-online-audits --gh-token "$(gh auth token)" example/example
+# Fetch remote inputs (needs that token too), but run only offline audits
+zizmor --no-online-audits example/example
 ```
 
 **Four audits are online-only** and silently do nothing offline: `impostor-commit`, `known-vulnerable-actions`, `ref-confusion`, `stale-action-refs`. If a review claims "zizmor is clean" from an offline run, that review did not check for impostor commits or known-vulnerable action versions.
@@ -213,8 +213,8 @@ zizmor --no-online-audits --gh-token "$(gh auth token)" example/example
 **Offline mode also changes severities on audits that do run.** Since v1.17.0 `artipacked` downgrades its finding when `actions/checkout` is v6.0.0 or newer, because v6 moved the persisted credential to `$RUNNER_TEMP`. Resolving a SHA pin to a version needs the network, so a SHA-pinned `actions/checkout@<sha>  # v7.0.1` reports **medium** offline (zizmor assumes the pre-v6 worst case) and **low** online (zizmor confirms v7). In a repo that SHA-pins every checkout, that single difference moves every `artipacked` finding between severity buckets. Do not compare a local `--offline` total against a CI total and conclude something regressed — reproduce CI's mode first:
 
 ```bash
-# Reproduce what CI sees, including severity assignment
-GH_TOKEN="$(gh auth token)" zizmor --persona=regular .
+# Reproduce what CI sees, including severity assignment (with a token in your environment, as in CI)
+zizmor --persona=regular .
 ```
 
 ### Token permissions
@@ -225,7 +225,7 @@ Zizmor generally needs **no special scopes** — the token exists mainly to lift
 - `repo` for OAuth tokens and classic PATs
 - appropriate repository access for fine-grained PATs
 
-Locally, use `gh auth token` rather than provisioning a PAT.
+Locally, export a short-lived token in your own shell before starting Claude Code rather than provisioning a long-lived PAT. The skill never reads, prints or creates it.
 
 ### Other GitHub hosts
 
@@ -439,7 +439,7 @@ Auto-fixable findings carry a `= note: this finding has an auto-fix` line in pla
 
 ```bash
 git status --porcelain | grep -q . && { echo "commit or stash first"; exit 1; }
-zizmor --fix=safe --gh-token "$(gh auth token)" .
+zizmor --fix=safe .        # online fixes need a token in your environment
 git --no-pager diff        # review every hunk
 zizmor .                   # re-audit: what remains needs a human
 ```
@@ -1035,7 +1035,7 @@ Never suppress without a reason string. A bare ignore is indistinguishable from 
 
 | Mistake | Consequence | Fix |
 |---|---|---|
-| Running offline and calling the repo clean | `impostor-commit`, `known-vulnerable-actions`, `ref-confusion`, `stale-action-refs` never ran | `--gh-token "$(gh auth token)"`, or `GH_TOKEN` in CI |
+| Running offline and calling the repo clean | `impostor-commit`, `known-vulnerable-actions`, `ref-confusion`, `stale-action-refs` never ran | Export `GH_TOKEN` (or `GITHUB_TOKEN`, `ZIZMOR_GITHUB_TOKEN`) in your shell, as CI sets it; zizmor reads it itself |
 | Gating on `--format=sarif` exit status | Exit codes 11+ suppressed; job green with high findings | Separate SARIF upload from a non-SARIF gating run |
 | Using `--fix` inside a CI gate | Every finding is fixed, exit code masked, gate always passes | `--fix` locally only; gate re-audits |
 | Omitting `--strict-collection` | Malformed workflows skipped with a warning; "0 findings" means "0 audited" | Add `--strict-collection` to every CI invocation |

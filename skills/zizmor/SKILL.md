@@ -82,8 +82,9 @@ What should I audit? (press Enter for the recommended value)
 
   • Online mode [on]: four audits only work online — impostor-commit,
     known-vulnerable-actions, ref-confusion, stale-action-refs.
-    I'll use `gh auth token` if you're logged in. Enter to accept, or
-    type 'offline' to skip those four.
+    zizmor uses a GitHub token if one is set in your environment
+    (GH_TOKEN, GITHUB_TOKEN or ZIZMOR_GITHUB_TOKEN); I never read or create
+    one. Enter to accept, or type 'offline' to skip those four.
 
   • Collectors [default]: workflows + actions + dependabot + pre-commit,
     respecting .gitignore. Type 'all' to include gitignored paths (slower),
@@ -93,7 +94,7 @@ What should I audit? (press Enter for the recommended value)
 Detect and resolve silently where possible:
 
 - Run `zizmor --version`. Not installed → offer `uvx zizmor@1.29.0` (no install) or `brew install zizmor`. Do not ask permission to check the version.
-- Run `gh auth status`. Authenticated → use `--gh-token "$(gh auth token)"` and say so. Not authenticated → state plainly that the four online audits will be skipped, and continue offline.
+- Never look for, read, print or create a GitHub token. zizmor reads `GH_TOKEN`, `GITHUB_TOKEN` or `ZIZMOR_GITHUB_TOKEN` from the environment itself. When its output says it is running in offline mode, state plainly that the four online audits were skipped, and that they run once the user exports one of those variables in the shell that starts Claude Code.
 - Check for `.github/zizmor.yml` or `zizmor.y{a,}ml` at the repo root. Found → say which file will apply. Not found → note that defaults apply, including blanket SHA-pinning for **all** actions.
 - Check whether the target is inside a Git repo. If yes, warn that config discovery starts **and ends** at the repo root, so a `zizmor.yml` in a subdirectory is never read.
 
@@ -141,7 +142,7 @@ Ask these only when the situation triggers them:
 | `ci` mode, repo already has a zizmor workflow | "`.github/workflows/<name>.yml` already runs zizmor. Update it in place, or add a second workflow?" |
 | Findings suppressed with no justification found | "N existing suppressions have no reason string. Add justifications now?" |
 
-Never ask about: output format (default `plain`, `sarif` only in CI), whether to install zizmor (just do it via `uvx`), whether to check `gh auth status` (always check silently), or whether to re-audit after `fix` (always re-audit).
+Never ask about: output format (default `plain`, `sarif` only in CI), whether to install zizmor (just do it via `uvx`), or whether to re-audit after `fix` (always re-audit). Never check for saved GitHub logins or token variables (no `gh auth status`, no inspecting `GH_TOKEN`): zizmor's own output says whether it ran online or offline.
 
 ---
 
@@ -150,14 +151,15 @@ Never ask about: output format (default `plain`, `sarif` only in CI), whether to
 The everyday run. Default persona, online if a token is available, strict collection.
 
 ```bash
-# Recommended local invocation
-zizmor --strict-collection --gh-token "$(gh auth token)" .
+# Recommended local invocation. Online audits run when GH_TOKEN, GITHUB_TOKEN or
+# ZIZMOR_GITHUB_TOKEN is set in your environment; zizmor reads it itself.
+zizmor --strict-collection .
 
-# No gh CLI / no token — the four online audits are skipped
+# Explicitly offline — the four online audits are skipped
 zizmor --strict-collection --offline .
 
 # Without a local install
-uvx zizmor@1.29.0 --strict-collection --gh-token "$(gh auth token)" .
+uvx zizmor@1.29.0 --strict-collection .
 ```
 
 Report in this order:
@@ -179,7 +181,6 @@ zizmor --strict-collection \
   --persona=auditor \
   --min-confidence=low \
   --collect=all \
-  --gh-token "$(gh auth token)" \
   --no-ignores \
   .
 ```
@@ -196,9 +197,9 @@ State up front that the auditor persona is documented to include likely false po
 # Refuse to proceed on a dirty tree — the diff is the review artifact
 git status --porcelain | grep -q . && { echo "commit or stash first"; exit 1; }
 
-zizmor --fix=safe --gh-token "$(gh auth token)" .
+zizmor --fix=safe .
 git --no-pager diff
-zizmor --strict-collection --gh-token "$(gh auth token)" .   # what remains needs a human
+zizmor --strict-collection .   # what remains needs a human
 ```
 
 Blast radius to state before running:

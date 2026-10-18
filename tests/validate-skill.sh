@@ -73,6 +73,51 @@ for field in "^name:" "^description:"; do
 done
 
 echo ""
+echo "=== Plugin directory icon ==="
+
+# Anthropic's directory takes the listing icon from .claude-plugin/icon.png:
+# a square PNG, 512 to 2048 px per side, under 2 MB (SVG and WebP are refused).
+ICON=".claude-plugin/icon.png"
+if [ -f "$ICON" ]; then
+  if ICON_INFO="$(python3 -I - "$ICON" <<'PY'
+import os, struct, sys
+path = sys.argv[1]
+with open(path, "rb") as f:
+    head = f.read(24)
+if head[:8] != b"\x89PNG\r\n\x1a\n" or head[12:16] != b"IHDR":
+    sys.exit("not a PNG")
+w, h = struct.unpack(">II", head[16:24])
+size = os.path.getsize(path)
+if w != h: sys.exit(f"not square: {w}x{h}")
+if not 512 <= w <= 2048: sys.exit(f"{w}px is outside 512-2048")
+if size >= 2 * 1024 * 1024: sys.exit(f"{size} bytes is not under 2 MB")
+print(f"{w}x{h} PNG, {size // 1024} KB")
+PY
+)"; then
+    pass "$ICON is a valid listing icon ($ICON_INFO)"
+  else
+    fail "$ICON is not a valid listing icon"
+  fi
+else
+  fail "$ICON missing (the directory listing has no icon)"
+fi
+
+echo ""
+echo "=== Shipped content never derives a credential ==="
+
+# The plugin directory holds a plugin that reads credentials from the user's
+# machine. Skills, references and examples must leave tokens to the user's own
+# environment (tools read GH_TOKEN, GITHUB_TOKEN, GITHUB_PAT, ...), never derive
+# them with $(gh auth token).
+DERIVED="$(git grep -nE '[$][(]gh auth token[)]' -- skills references examples 2>/dev/null || true)"
+if [ -z "$DERIVED" ]; then
+  pass "no \$(gh auth token) in skills, references or examples"
+else
+  fail "credential derived from the machine — let the tool read a user-set env var instead:"
+  printf '%s\n' "$DERIVED" | sed 's/^/    /'
+fi
+
+echo ""
 echo "=== Reference files ==="
 
 REQUIRED_REFERENCES=(
