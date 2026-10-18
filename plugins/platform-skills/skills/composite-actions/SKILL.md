@@ -317,15 +317,19 @@ Evaluate and report findings in three tiers:
 
 ```yaml
 # ❌ UNSAFE — input interpolated directly into shell, enables injection
-- name: Fetch data
-  run: curl https://example.com?token=${{ inputs.token }}
+- name: Deploy chart
+  shell: bash
+  run: helm upgrade --install payments-api ./chart --namespace ${{ inputs.namespace }}
 
 # ✅ SAFE — input passed via env var; always quote the variable to prevent word-splitting
-- name: Fetch data
+- name: Deploy chart
+  shell: bash
   env:
-    TOKEN: ${{ inputs.token }}
-  run: curl "https://example.com?token=${TOKEN}"
+    NAMESPACE: ${{ inputs.namespace }}
+  run: helm upgrade --install payments-api ./chart --namespace "$NAMESPACE"
 ```
+
+Pass a secret input the same way, through `env:`, and send it in a request header. A token in a URL query string ends up in server and proxy logs.
 
 This applies to ALL `run:` steps. Never interpolate `${{ inputs.* }}`, `${{ github.event.* }}`, or `${{ steps.*.outputs.* }}` directly into shell commands.
 
