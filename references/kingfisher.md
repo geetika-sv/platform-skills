@@ -555,7 +555,7 @@ npm install --save-dev --save-exact husky@9.1.7
 echo 'kingfisher scan . --staged --quiet --no-update-check' >> .husky/pre-commit
 ```
 
-Don't use upstream's `scripts/install-husky.sh`: the hook it writes pipes `kingfisher-pre-commit-auto.sh` from `main` into `bash` on every commit, so each contributor runs whatever that branch holds.
+Upstream's `scripts/install-husky.sh` writes the same line when run with no options. Don't pass `--auto-install` or `--use-docker`. `--auto-install` writes a hook that pipes `kingfisher-pre-commit-auto.sh` from `main` into `bash` on every commit, so each contributor runs whatever that branch holds. `--use-docker` runs `ghcr.io/mongodb/kingfisher:latest`.
 
 **State the caveat when installing any of these:** these hooks run locally and cannot enforce anything on a contributor who commits with `--no-verify` or on a clone that skipped hook install — the CI gate (below) is the actual control; the hook is a fast, friendly first line.
 
