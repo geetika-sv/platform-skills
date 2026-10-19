@@ -5,6 +5,18 @@ All notable changes to Platform Skills will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **The installed triage skill could not find its helper.** `references/triage.md` runs `python3 "$CLAUDE_PLUGIN_ROOT/examples/triage/scripts/triage_helper.py"`, but the Bash tool does not set `CLAUDE_PLUGIN_ROOT` (plugins reference, "Where each variable resolves"). A probe plugin confirmed it on Claude Code 2.1.207: `${CLAUDE_PLUGIN_ROOT}` in skill text came back as the absolute install path, while the same variable in a Bash command was unset. So every helper call pointed at `/examples/triage/...`, and the reference's own rule turned that into a reported capability gap. The triage skill now states the root, which Claude Code fills in when it loads the skill, and each helper command starts with `CLAUDE_PLUGIN_ROOT='<that path>';`. Loaded from a built plugin folder, the skill ran the helper (`usage: triage_helper.py [-h] …`). The security rule is unchanged: the helper comes from the installed plugin, never the PR's working tree.
+- **The kingfisher guide ran downloaded code when hooks and CI jobs run.**
+  - **Husky:** the hook piped `kingfisher-pre-commit-auto.sh` into `bash` on every commit. It now runs the installed `kingfisher` with the flags upstream's hooks use (`scan . --staged --quiet --no-update-check`), so nothing downloads at commit time. The guide notes that upstream's `install-husky.sh` writes the same command by default. It warns against that script's `--auto-install` option, whose hook pipes the auto script from `main` into `bash`, and its `--use-docker` option, which runs `:latest`.
+  - **CI Option A:** piped `install-kingfisher.sh` into `bash`. It now downloads `kingfisher-linux-x64.tgz` for v2.13.0 and checks it with `sha256sum -c` against the SHA-256 in the release's signed SLSA provenance before installing it. Tested: the right checksum installs the binary, a wrong one fails before install.
+  - **pre-commit framework:** recommended `kingfisher-auto`, which downloads the binary on first use (`latest` unless `KINGFISHER_VERSION` is set, unverified). It now uses the `kingfisher` hook, which runs the installed binary, at `rev: v2.13.0`. The skill's `precommit` mode and `COMMANDS.md` match.
+  - **uv:** `uvx kingfisher-bin --help` could not work, because the package installs a `kingfisher` command, not `kingfisher-bin`. The guide and the skill now install a pinned `kingfisher-bin==2.13.0`.
+  - **Versions:** the guide pinned four versions (mise 1.113.0, Docker and CI 2.0.0, the standalone installer 2.13.0). All now use 2.13.0, the current release, which exists on GitHub, PyPI and GHCR.
+
 ## [1.45.7] - 2026-10-18
 
 Replaces the remaining real download-and-run commands in what the plugin ships. A sweep of all 410 shipped files found them in five references, one skill and one example script. The plugin directory has listed exactly ten download-and-run findings in each of the last three scans, with new files taking the place of cleared ones. Four of the ten it listed for 1.45.6 are fixed here, plus the datadog reference and the dynatrace skill and reference, which it had not listed. The other six (dora, linux, the router skill, preflight, `notify-slack` and `references/composite-actions.md`) call APIs or webhooks with `curl` and download no code.

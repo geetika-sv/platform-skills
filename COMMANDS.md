@@ -314,7 +314,7 @@ Kingfisher answers *"is this secret still live, and what can it reach?"*; Trivy'
 | `triage` | Walk existing findings one at a time → validate / revoke / rotate / accept-in-baseline / false-positive |
 | `config` | Generate or repair `kingfisher.yaml` |
 | `ci` | Emit a CI gate: hard-fail, SARIF alerts, or Docker-based |
-| `precommit` | Add the `kingfisher-auto` pre-commit hook (or Husky) and state the caveat |
+| `precommit` | Add the `kingfisher` pre-commit hook, which runs the installed binary (or Husky), and state the caveat |
 | `explain` | Explain a rule id, an exit code, or a validation outcome |
 
 **Guardrails it enforces:**
