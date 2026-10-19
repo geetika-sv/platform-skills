@@ -23,9 +23,11 @@ Steps:
    ```bash
    kubectl get svc -A | grep pushgateway
    ```
-   If absent, deploy via Helm before proceeding:
+   If absent, stop: Pushgateway is a prerequisite, and installing it into the user's cluster is their call, not this skill's. Give them a pinned install to run, then continue once the check above finds it:
    ```bash
+   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
    helm upgrade --install prometheus-pushgateway prometheus-community/prometheus-pushgateway \
+     --version 3.9.1 \
      --namespace monitoring \
      --create-namespace
    ```
@@ -51,7 +53,7 @@ Steps:
        FIRST_COMMIT_TS=${FIRST_COMMIT_TS:-$DEPLOY_TS}
        LEAD_TIME=$((DEPLOY_TS - FIRST_COMMIT_TS))
        INSTANCE="${REPO//\//_}"
-       cat <<EOF | curl --data-binary @- "${PUSHGATEWAY_URL}/metrics/job/dora/instance/${INSTANCE}"
+       curl --data-binary @- "${PUSHGATEWAY_URL}/metrics/job/dora/instance/${INSTANCE}" <<EOF
        # TYPE dora_deployment_timestamp gauge
        dora_deployment_timestamp{repo="${REPO}",env="production"} ${DEPLOY_TS}
        # TYPE dora_lead_time_seconds gauge

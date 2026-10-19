@@ -55,27 +55,9 @@ mise use --global github:mongodb/kingfisher
 mise use --global github:mongodb/kingfisher@1.113.0
 ```
 
-### Linux and macOS install script
+### Linux and Windows
 
-```bash
-curl --silent --location \
-  https://raw.githubusercontent.com/mongodb/kingfisher/main/scripts/install-kingfisher.sh | \
-  bash
-
-# custom install dir
-curl --silent --location .../install-kingfisher.sh | bash -s -- /opt/kingfisher
-
-# pin a specific tag
-curl --silent --location .../install-kingfisher.sh | bash -s -- --tag v1.71.0
-```
-
-### Windows (PowerShell)
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
-Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/mongodb/kingfisher/main/scripts/install-kingfisher.ps1' -OutFile install-kingfisher.ps1
-./install-kingfisher.ps1
-```
+Homebrew (on Linux too) and mise above, and uv and Docker below, all work here; mise and Docker pin a version. The project also publishes Linux, macOS and Windows binaries (`kingfisher-windows-x64.zip`, for example) on its GitHub releases page. Prefer these to the install scripts in the repository's `scripts/` directory: fetched from `main`, the script that runs is whatever that branch holds.
 
 ### PyPI / uv (no persistent install)
 
@@ -90,7 +72,7 @@ uvx kingfisher-bin --help           # one-shot, no install
 ```bash
 docker run --rm ghcr.io/mongodb/kingfisher:2.0.0 --version
 
-docker run --rm -v "$PWD":/src ghcr.io/mongodb/kingfisher:2.0.0 scan /src
+docker run --rm -v "$(pwd)":/src ghcr.io/mongodb/kingfisher:2.0.0 scan /src
 ```
 
 **Pin the tag.** `:latest` moves under you — a scan that passed yesterday can behave differently today because the rule catalogue or validator set changed. Pin to a released version tag (`ghcr.io/mongodb/kingfisher:2.0.0`) for reproducible CI, the same reason zizmor's `unpinned-images` audit flags `:latest` container references.
@@ -553,12 +535,13 @@ Pin a specific binary version independent of `rev:` via `KINGFISHER_VERSION` in 
 ### Standalone installer (no `pre-commit` framework)
 
 ```bash
-# per-repo
-curl --silent --location \
-  https://raw.githubusercontent.com/mongodb/kingfisher/main/scripts/install-kingfisher-pre-commit.sh | bash
+# Fetch the installer at a release tag, read it, then run it
+curl --fail --silent --location -o install-kingfisher-pre-commit.sh \
+  https://raw.githubusercontent.com/mongodb/kingfisher/v2.13.0/scripts/install-kingfisher-pre-commit.sh
+less install-kingfisher-pre-commit.sh
 
-# global (core.hooksPath)
-curl --silent --location .../install-kingfisher-pre-commit.sh | bash -s -- --global
+bash install-kingfisher-pre-commit.sh            # per-repo
+bash install-kingfisher-pre-commit.sh --global   # global (core.hooksPath)
 ```
 
 Chains **before** any existing `pre-commit` hook rather than replacing it.
@@ -682,7 +665,7 @@ Needs `security-events: write` on the job. As with any SARIF-only step, a green 
 ```yaml
       - name: Scan for secrets (Docker)
         run: |
-          docker run --rm -v "$PWD":/src \
+          docker run --rm -v "$(pwd)":/src \
             ghcr.io/mongodb/kingfisher:2.0.0 \
             scan /src --since-commit "origin/main" --branch HEAD
 ```

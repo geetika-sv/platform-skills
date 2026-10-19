@@ -5,6 +5,61 @@ All notable changes to Platform Skills will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.45.7] - 2026-10-18
+
+Replaces the remaining real download-and-run commands in what the plugin ships. A sweep of all 410 shipped files found them in five references, one skill and one example script. The plugin directory has listed exactly ten download-and-run findings in each of the last three scans, with new files taking the place of cleared ones. Four of the ten it listed for 1.45.6 are fixed here, plus the datadog reference and the dynatrace skill and reference, which it had not listed. The other six (dora, linux, the router skill, preflight, `notify-slack` and `references/composite-actions.md`) call APIs or webhooks with `curl` and download no code.
+
+### Fixed
+
+- **The kingfisher reference piped install scripts from `main` into bash.** The Linux, macOS and pre-commit installers ran `curl …/main/scripts/install-kingfisher*.sh | bash`. The Windows path ran the PowerShell installer from `main` under `ExecutionPolicy Bypass`. The install section now points to Homebrew, mise, uv, Docker and the release binaries. The pre-commit installer is fetched at the v2.13.0 tag, read, and then run.
+- **The trivy reference piped `contrib/install.sh` from `main` into sh**, locally and in CI. Linux now installs the pinned v0.76.0 release, checked against `trivy_0.76.0_checksums.txt`. CI uses `aquasecurity/setup-trivy` pinned to its v0.3.1 commit, with `version: v0.76.0`; its default is latest.
+- **The opa reference installed Conftest and Regal from `releases/latest` with no checksum**, in its CI template too. CI now pins Conftest 0.71.1 and Regal 0.43.0 and checks each against the release's `checksums.txt`. Regal's URLs point at `open-policy-agent/regal`, where the project moved. The local install keeps Homebrew and describes the pinned-release path.
+- **The datadog reference suggested the latest pup binary straight into `/usr/local/bin`.** It now describes a pinned, verified release.
+- **The dynatrace skill and reference applied the newest operator to the cluster.** Both ran `kubectl apply -f …/dynatrace-operator/releases/latest/download/kubernetes.yaml`, so what landed in the cluster changed with each upstream release. Both now apply the pinned v1.11.0 manifest.
+- **token-optimizer's `set_uint` assigned through `eval`.** It now uses `printf -v`, with the same result and no `eval`. The value was already validated as an unsigned integer. The token-optimizer tests pass, and `printf -v` works on macOS's bash 3.2.
+
+## [1.45.6] - 2026-10-18
+
+Fixes the composite-action release workflows, which failed on every tag, and stops two skills from installing software on their own. Together these remove the download-and-run commands behind six of the ten findings the plugin directory listed. The other four neither download nor run code: the Slack webhook POST in `notify-slack`, `curl -v` in the connectivity ladder of the linux and router skills, and a preflight checklist line. The directory says a match that only appears in documentation needs no change, so they stay.
+
+### Fixed
+
+- **Composite-action release workflows failed on every tag.** All eleven `examples/github-actions/composite-actions/*/.github/workflows/release.yml` ran `actionlint action.yml`. actionlint lints workflows, not action metadata. It read `action.yml` as a workflow, reported `"jobs" section is missing`, and exited 1 before the release was created. The step is now an `action.yml` check with `yq`, which the ubuntu runner image ships. It checks three things: `runs.using` is `composite`, every step key is one GitHub documents for a composite step, and every `run:` step has `shell:`. It passes on all eleven actions. It fails on a step-level `timeout-minutes`, a `run:` without `shell:`, a non-composite action, and invalid YAML. Nothing is downloaded, so the actionlint download the directory listed in four of these files is gone.
+- **The composite-actions reference taught the same broken check and piped an installer into bash.** `references/composite-actions.md` ran `actionlint action.yml` in three places. It also installed actionlint twice with `curl …/actionlint/main/scripts/download-actionlint.bash | bash`. Its release-workflow template expanded `${{ github.ref_name }}` straight into `run:`, which is template injection from a tag name, and pinned checkout v4.2.2 and github-script v7.0.1. The template now matches the example workflows, and the static-validation section uses the `yq` checks. actionlint is described as a workflow linter that also checks the inputs passed to a local action through `uses: ./`. The composite-actions skill and the examples README say the same.
+- **The ai-governance skill installed yq with `sudo`.** When yq was missing, the skill told the agent to download a release binary and `sudo install` it. It now stops and asks the user to install yq. The version it pinned (v4.53.6) was also behind the Renovate-tracked pin in `examples/ai-governance/ai-governance-check.yml`.
+- **The dora skill installed Pushgateway into the cluster on its own.** When no Pushgateway was found, it ran `helm upgrade --install` "before proceeding", with an unpinned chart and no `helm repo add`. It now stops and gives the user a pinned install (`--version 3.9.1`) to run.
+- **The composite-actions README still listed `timeout-minutes` on network-bound steps.** 1.45.5 removed those lines because a composite step does not accept the key. The row now names what bounds the waits: `curl --max-time` and `kubectl rollout status --timeout`.
+
+## [1.45.5] - 2026-10-18
+
+Pins and verifies the installers in the composite-action examples, which the plugin directory listed as download-and-run commands, and fixes two actions that failed to load.
+
+### Fixed
+
+- **Composite-action release workflows ran an unpinned installer.** All eleven `examples/github-actions/composite-actions/*/.github/workflows/release.yml` installed actionlint with `curl -sL …/actionlint/main/scripts/download-actionlint.bash | bash -s -- latest`: a script from a moving branch, piped straight into bash, fetching whatever release was newest. Each now downloads the pinned actionlint release tarball, checks its SHA-256, and installs it. The version and checksum carry a Renovate annotation, so `github-release-attachments` bumps both together, as in the Renovate Gate. The plugin directory listed three of these as "Contains a download-and-run command".
+- **`k8s-deploy` installed `kubectl` without verifying it.** The action downloaded the binary from `dl.k8s.io` and made it executable. It now fetches the `kubectl.sha256` published beside it and runs `sha256sum --check` before installing.
+- **`k8s-deploy` and `notify-slack` set `timeout-minutes` on composite steps.** GitHub accepts `timeout-minutes` only on a job, so each action failed to load ("Unexpected value 'timeout-minutes'"). The five lines are removed. The rollout wait keeps its own `--timeout`, and the Slack webhook call gains `--max-time 30`. Set `timeout-minutes` on the calling job.
+- **Two download-and-run false matches.** The preflight skill's security rule read "No `curl | bash`" and now says the same thing without the pattern. The dora skill piped a heredoc into `curl` to push metrics, and now feeds `curl` the heredoc directly, with no pipe and the same request.
+
+## [1.45.4] - 2026-10-18
+
+Trims the plugin directory's review holds: the image-file hold on the self-improve hook, and five false matches in the credential hold. Neither hold blocks submission. The credential hold stays on for review by design, because its remaining findings are vendor credentials used with that vendor's own service.
+
+### Fixed
+
+- **The directory held the plugin because the self-improve hook "names" the listing icon.** `examples/agent-self-improve/scripts/self-improve-hook.sh` never mentions `icon.png`, but `running_from_plugin` matched `$0` against a wildcard case pattern under `CLAUDE_PLUGIN_ROOT`. The directory's scanner reads a wildcard under the plugin root as naming every file there, `.claude-plugin/icon.png` included, and holds the plugin as `UNREAD_ASSET_REFERENCED`. The check is now a prefix strip with the same result, checked for a root with and without a trailing slash, a sibling directory sharing the prefix, the root itself, and an unset root. The `plugins/platform-guardrails` copy stays byte-identical, and all 240 hook tests pass in bash and pwsh.
+- **Five false matches in the "Uses a credential from the user's machine" hold.** Four validator scripts (`gateway-api`, `kubescape`, `kubescape-operator` and `terraform`) named their pass/fail helper `pass`, so `pass "$f …"` read as a password next to a URL in the same file. The helper is now `ok`, and the printed `PASS:` lines are unchanged. `references/kingfisher.md` mounted `"$PWD"`, which read as a password variable, and now uses `"$(pwd)"`.
+
+## [1.45.3] - 2026-10-18
+
+Clears the one issue that blocked the plugin directory submission (a sample token in the triage reference), adds a credential check to the plugin-folder gate, and repairs the gh-aw source scan.
+
+### Fixed
+
+- **The plugin directory blocked submission on a sample token.** `references/triage.md` showed a `state lock` result whose `lock_token` was a real-looking 32-hex value, and passed the same value to `state unlock --lock-token`. It is only a per-run lock nonce, but a credential-named key with a high-entropy value is what the directory blocks as `SECRET_IN_SCRIPT` ("Secret in a shipped file"), so validation of `plugins/platform-skills` at 1.45.2 stopped there. Both spots now use placeholders (`<32 hex characters, new on every acquire>`, `"<lock_token>"`).
+- **New check 7 in `tests/plugin-folder.sh`.** It fails on a credential-shaped literal in what the next release ships: a vendor token prefix (`ghp_`, `github_pat_`, `AKIA`, `xox…`, `sk_live_`, `glpat-`, `AIza`, a PEM private key), or a credential-named key or flag given a 16+ character value mixing letters and digits. Values marked as samples (`EXAMPLE`, `xxxx`, `YOUR_`, placeholder, `REDACTED`, dummy, fake) pass, as they do in the directory. It scans a fresh build, so a source fix passes on its PR before the release PR rebuilds the folder, and it fails closed if the scan cannot run. It prints only `file:line` with `[value redacted]`, so a real secret it finds is not copied into CI or release logs. Its pattern is defined in pieces so `tests/scan-secrets.sh` still scans the file.
+- **The gh-aw source check in `tests/scan-secrets.sh` scanned nothing.** Check 2 exists to catch hard-coded credentials in agentic workflow sources (`.github/workflows/*.md`), but `git ls-files -- '.github/workflows/**/*.md'` needs the `:(glob)` pathspec: without it `**/` means at least one subdirectory, so `renovate-gate.md` never matched and the check reported "No agentic workflow sources found" from August to October. Its keyword match was also case-sensitive, so an uppercase key such as `API_TOKEN: "…"` passed. Both are fixed; a planted credential in a gh-aw source is now caught in either case.
+
 ## [1.45.2] - 2026-10-18
 
 Ships the composite-actions injection example fix in the plugin folder the directory lists, and records the marketplace's switch to installing that folder.
