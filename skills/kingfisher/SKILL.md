@@ -150,7 +150,7 @@ Ask these only when the situation triggers them:
 | Repo already has a kingfisher CI workflow | "A kingfisher workflow already exists at `<path>`. Update it in place, or add a second one?" |
 | Finding is `assumed` (not `verified_active`) and the user is treating it as confirmed | State plainly: `assumed` is high-confidence but not network-checked. Offer to re-run with validation on, or `kingfisher validate` directly on that string. |
 
-Never ask about: output format for a quick local check (default `pretty`; ask only for `ci`/automation, where `sarif`/`json`/`toon` matter), whether to install kingfisher (just do it via `brew`/`uvx`/install script), or whether to check for a `kingfisher.yaml`/baseline file (always check silently).
+Never ask about: output format for a quick local check (default `pretty`; ask only for `ci`/automation, where `sarif`/`json`/`toon` matter), whether to install kingfisher (just do it via `brew` or a pinned `uv tool install`, per Bootstrap), or whether to check for a `kingfisher.yaml`/baseline file (always check silently).
 
 ---
 
